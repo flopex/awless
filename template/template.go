@@ -67,7 +67,8 @@ func (s *Template) Run(renv env.Running) (*Template, error) {
 		current.Statements = append(current.Statements, clone)
 		switch n := clone.Node.(type) {
 		case *ast.CommandNode:
-			if stop := processCmdNode(renv, n, vars); stop {
+			n.ProcessRefs(vars)
+			if stop := processCmdNode(renv, n); stop {
 				return current, nil
 			}
 		case *ast.DeclarationNode:
@@ -75,7 +76,8 @@ func (s *Template) Run(renv env.Running) (*Template, error) {
 			expr := n.Expr
 			switch n := expr.(type) {
 			case *ast.CommandNode:
-				if stop := processCmdNode(renv, n, vars); stop {
+				n.ProcessRefs(vars)
+				if stop := processCmdNode(renv, n); stop {
 					return current, nil
 				}
 				vars[ident] = n.Result()
@@ -90,8 +92,7 @@ func (s *Template) Run(renv env.Running) (*Template, error) {
 	return current, nil
 }
 
-func processCmdNode(renv env.Running, n *ast.CommandNode, vars map[string]interface{}) bool {
-	n.ProcessRefs(vars)
+func processCmdNode(renv env.Running, n *ast.CommandNode) bool {
 	if renv.IsDryRun() {
 		n.CmdResult, n.CmdErr = n.Command.Run(renv, n.ToDriverParams())
 		n.CmdErr = prefixError(n.CmdErr, fmt.Sprintf("dry run: %s %s", n.Action, n.Entity))

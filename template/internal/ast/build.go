@@ -16,6 +16,7 @@ type statementBuilder struct {
 	declarationIdentifier string
 	isValue               bool
 	params                []*parameter
+	newparams             map[string]interface{}
 	currentKey            string
 	currentValue          CompositeValue
 	listBuilder           *listValueBuilder
@@ -34,6 +35,12 @@ func (b *statementBuilder) build() *Statement {
 		for _, param := range b.params {
 			cmdParams[param.key] = param.value
 		}
+		cmdNode := CmdNode{
+			action:     b.action,
+			entity:     b.entity,
+			ParamNodes: b.newparams,
+		}
+		fmt.Println(cmdNode)
 		expr = &CommandNode{Action: b.action, Entity: b.entity, Params: cmdParams}
 	}
 	if b.declarationIdentifier != "" {
@@ -45,6 +52,30 @@ func (b *statementBuilder) build() *Statement {
 
 func (b *statementBuilder) addParamKey(key string) *statementBuilder {
 	b.currentKey = key
+	return b
+}
+
+func (b *statementBuilder) addRef(s string) *statementBuilder {
+	if b.newparams == nil {
+		b.newparams = make(map[string]interface{})
+	}
+	b.newparams[b.currentKey] = RefNode{key: s}
+	return b
+}
+
+func (b *statementBuilder) addAlias(s string) *statementBuilder {
+	if b.newparams == nil {
+		b.newparams = make(map[string]interface{})
+	}
+	b.newparams[b.currentKey] = AliasNode{key: s}
+	return b
+}
+
+func (b *statementBuilder) addHole(s string) *statementBuilder {
+	if b.newparams == nil {
+		b.newparams = make(map[string]interface{})
+	}
+	b.newparams[b.currentKey] = HoleNode{key: s}
 	return b
 }
 
@@ -159,14 +190,17 @@ func (a *AST) addStringValue(text string) {
 }
 
 func (a *AST) addParamRefValue(text string) {
+	a.stmtBuilder.addRef(text)
 	a.stmtBuilder.addParamValue(&referenceValue{ref: text})
 }
 
 func (a *AST) addParamHoleValue(text string) {
+	a.stmtBuilder.addHole(text)
 	a.stmtBuilder.addParamValue(NewHoleValue(text))
 }
 
 func (a *AST) addAliasParam(text string) {
+	a.stmtBuilder.addAlias(text)
 	a.stmtBuilder.addParamValue(&aliasValue{alias: text})
 }
 
