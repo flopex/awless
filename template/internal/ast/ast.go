@@ -184,6 +184,32 @@ func (c *CommandNode) ProcessRefs(refs map[string]interface{}) {
 			withRef.ProcessRefs(refs)
 		}
 	}
+
+	for paramKey, param := range c.ParamNodes {
+		if ref, ok := param.(RefNode); ok {
+			for k, v := range refs {
+				if k == ref.key {
+					c.ParamNodes[paramKey] = v
+				}
+			}
+		}
+
+		if list, ok := param.(ListNode); ok {
+			var new []interface{}
+			for _, e := range list.arr {
+				newElem := e
+				if ref, isRef := e.(RefNode); isRef {
+					for k, v := range refs {
+						if k == ref.key {
+							newElem = v
+						}
+					}
+				}
+				new = append(new, newElem)
+			}
+			list.arr = new
+		}
+	}
 }
 
 func (c *CommandNode) GetRefs() (refs []string) {

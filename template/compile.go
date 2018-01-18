@@ -276,10 +276,13 @@ func inlineVariableValuePass(tpl *Template, cenv env.Compiling) (*Template, env.
 }
 
 func resolveHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
-	tpl.visitHoles(func(h ast.WithHoles) {
+	/*tpl.visitHoles(func(h ast.WithHoles) {
 		processed := h.ProcessHoles(cenv.Get(env.FILLERS))
 		cenv.Push(env.PROCESSED_FILLERS, processed)
-	})
+	})*/
+
+	processed := ast.ProcessHoles(tpl.AST, cenv.Get(env.FILLERS))
+	cenv.Push(env.PROCESSED_FILLERS, processed)
 
 	return tpl, cenv, nil
 }
@@ -399,6 +402,8 @@ func resolveAliasPass(tpl *Template, cenv env.Compiling) (*Template, env.Compili
 			}
 		}
 	}
+
+	ast.ProcessAliases(tpl.AST, resolvAliasFunc)
 
 	switch len(emptyResolv) {
 	case 0:

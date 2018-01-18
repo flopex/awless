@@ -30,7 +30,7 @@ func (b *statementBuilder) build() *Statement {
 	}
 	var expr ExpressionNode
 	if b.isValue {
-		expr = RightExpressionNode{i: b.currentNode}
+		expr = &RightExpressionNode{i: b.currentNode}
 	} else {
 		cmdParams := make(map[string]CompositeValue)
 		for _, param := range b.params {

@@ -6,11 +6,13 @@ import (
 	"strings"
 )
 
+var _ ExpressionNode = (*RightExpressionNode)(nil)
+
 type RightExpressionNode struct {
 	i interface{}
 }
 
-func (n RightExpressionNode) Result() interface{} {
+func (n *RightExpressionNode) Result() interface{} {
 	switch v := n.i.(type) {
 	case InterfaceNode:
 		return v.i
@@ -19,7 +21,7 @@ func (n RightExpressionNode) Result() interface{} {
 	}
 }
 
-func (n RightExpressionNode) Err() error {
+func (n *RightExpressionNode) Err() error {
 	switch n.i.(type) {
 	case InterfaceNode:
 		return nil
@@ -28,12 +30,12 @@ func (n RightExpressionNode) Err() error {
 	}
 }
 
-func (n RightExpressionNode) String() string {
+func (n *RightExpressionNode) String() string {
 	return fmt.Sprint(n.i)
 }
 
-func (n RightExpressionNode) clone() Node {
-	return RightExpressionNode{
+func (n *RightExpressionNode) clone() Node {
+	return &RightExpressionNode{
 		i: n.i,
 	}
 }
