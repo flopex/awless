@@ -1,26 +1,56 @@
 package ast
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
 
-type CmdNode struct {
-	action, entity string
-	ParamNodes     map[string]interface{}
+type RightExpressionNode struct {
+	i interface{}
 }
 
-func (c CmdNode) String() string {
-	var paramsStr []string
-	for k, p := range c.ParamNodes {
-		paramsStr = append(paramsStr, fmt.Sprintf("%s:%s", k, p))
+func (n RightExpressionNode) Result() interface{} {
+	switch v := n.i.(type) {
+	case InterfaceNode:
+		return v.i
+	default:
+		return nil
 	}
-	return fmt.Sprintf("action:%s, entity:%s, params[%s]", c.action, c.entity, strings.Join(paramsStr, ","))
+}
+
+func (n RightExpressionNode) Err() error {
+	switch n.i.(type) {
+	case InterfaceNode:
+		return nil
+	default:
+		return errors.New("right expr node is not an interface node")
+	}
+}
+
+func (n RightExpressionNode) String() string {
+	return fmt.Sprint(n.i)
+}
+
+func (n RightExpressionNode) clone() Node {
+	return RightExpressionNode{
+		i: n.i,
+	}
 }
 
 type CompiledCommand struct {
 	Params map[string]interface{}
 	Refs   map[string]string
+}
+
+type CommandNode struct {
+	Command
+	CmdResult interface{}
+	CmdErr    error
+
+	Action, Entity string
+	Params         map[string]CompositeValue
+	ParamNodes     map[string]interface{}
 }
 
 type RefNode struct {
@@ -47,6 +77,27 @@ func (n HoleNode) String() string {
 	return "{" + n.key + "}"
 }
 
+type ListNode struct {
+	arr []interface{}
+}
+
+func (n ListNode) String() string {
+	var a []string
+	for _, e := range n.arr {
+		a = append(a, fmt.Sprint(e))
+	}
+	return "[" + strings.Join(a, ",") + "]"
+}
+
 type InterfaceNode struct {
 	i interface{}
+}
+
+func (n InterfaceNode) String() string {
+	switch v := n.i.(type) {
+	case []string:
+		return "[" + strings.Join(v, ",") + "]"
+	default:
+		return fmt.Sprint(v)
+	}
 }

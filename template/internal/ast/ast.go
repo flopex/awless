@@ -76,15 +76,6 @@ type Command interface {
 	Run(env.Running, map[string]interface{}) (interface{}, error)
 }
 
-type CommandNode struct {
-	Command
-	CmdResult interface{}
-	CmdErr    error
-
-	Action, Entity string
-	Params         map[string]CompositeValue
-}
-
 func (c *CommandNode) Result() interface{} { return c.CmdResult }
 func (c *CommandNode) Err() error          { return c.CmdErr }
 
@@ -98,8 +89,8 @@ func (c *CommandNode) Keys() (keys []string) {
 func (c *CommandNode) String() string {
 	var all []string
 
-	for k, v := range c.Params {
-		all = append(all, fmt.Sprintf("%s=%s", k, v.String()))
+	for k, v := range c.ParamNodes {
+		all = append(all, fmt.Sprintf("%s=%s", k, v))
 	}
 
 	sort.Strings(all)
@@ -139,6 +130,35 @@ func (c *CommandNode) ProcessHoles(fills map[string]interface{}) map[string]inte
 			}
 		}
 	}
+
+	for paramKey, param := range c.ParamNodes {
+		if hole, ok := param.(HoleNode); ok {
+			for k, v := range fills {
+				if k == hole.key {
+					c.ParamNodes[paramKey] = v
+					processed[k] = v
+				}
+			}
+		}
+
+		if list, ok := param.(ListNode); ok {
+			var new []interface{}
+			for _, e := range list.arr {
+				newElem := e
+				if hole, isHole := e.(HoleNode); isHole {
+					for k, v := range fills {
+						if k == hole.key {
+							newElem = v
+							processed[k] = v
+						}
+					}
+				}
+				new = append(new, newElem)
+			}
+			list.arr = new
+		}
+	}
+
 	return processed
 }
 

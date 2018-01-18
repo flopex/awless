@@ -18,6 +18,7 @@ type statementBuilder struct {
 	params                []*parameter
 	newparams             map[string]interface{}
 	currentKey            string
+	currentNode           interface{}
 	currentValue          CompositeValue
 	listBuilder           *listValueBuilder
 	concatenationBuilder  *concatenationValueBuilder
@@ -29,19 +30,18 @@ func (b *statementBuilder) build() *Statement {
 	}
 	var expr ExpressionNode
 	if b.isValue {
-		expr = &ValueNode{Value: b.currentValue}
+		expr = RightExpressionNode{i: b.currentNode}
 	} else {
 		cmdParams := make(map[string]CompositeValue)
 		for _, param := range b.params {
 			cmdParams[param.key] = param.value
 		}
-		cmdNode := CmdNode{
-			action:     b.action,
-			entity:     b.entity,
+		expr = &CommandNode{
+			Action:     b.action,
+			Entity:     b.entity,
+			Params:     cmdParams,
 			ParamNodes: b.newparams,
 		}
-		fmt.Println(cmdNode)
-		expr = &CommandNode{Action: b.action, Entity: b.entity, Params: cmdParams}
 	}
 	if b.declarationIdentifier != "" {
 		decl := &DeclarationNode{Ident: b.declarationIdentifier, Expr: expr}
@@ -79,19 +79,27 @@ func (b *statementBuilder) addHole(s string) *statementBuilder {
 	return b
 }
 
-func (b *statementBuilder) addParamValue(val CompositeValue) *statementBuilder {
+func (b *statementBuilder) addParamValue(val CompositeValue, node interface{}) *statementBuilder {
+	if b.newparams == nil {
+		b.newparams = make(map[string]interface{})
+	}
 	b.currentValue = val
+	b.currentNode = node
 	if b.concatenationBuilder != nil {
 		b.concatenationBuilder.add(b.currentValue)
 		b.currentValue = nil
+		b.currentNode = nil
 	} else if b.listBuilder != nil {
-		b.listBuilder.add(b.currentValue)
+		b.listBuilder.add(b.currentValue, node)
 		b.currentValue = nil
+		b.currentNode = nil
 	} else {
 		if b.currentKey != "" {
 			b.params = append(b.params, &parameter{key: b.currentKey, value: b.currentValue})
+			b.newparams[b.currentKey] = node
 			b.currentKey = ""
 			b.currentValue = nil
+			b.currentNode = nil
 		}
 	}
 
@@ -105,9 +113,9 @@ func (b *statementBuilder) newList() *statementBuilder {
 
 func (b *statementBuilder) buildList() *statementBuilder {
 	if b.listBuilder != nil {
-		list := b.listBuilder.build()
+		list, node := b.listBuilder.build()
 		b.listBuilder = nil
-		b.addParamValue(list)
+		b.addParamValue(list, node)
 	}
 	return b
 }
@@ -163,7 +171,7 @@ func (a *AST) addParamValue(text string) {
 			val = text
 		}
 	}
-	a.stmtBuilder.addParamValue(&interfaceValue{val: val})
+	a.stmtBuilder.addParamValue(&interfaceValue{val: val}, InterfaceNode{i: val})
 }
 
 func (a *AST) addFirstValueInList() {
@@ -181,40 +189,41 @@ func (a *AST) lastValueInConcatenation() {
 	if a.stmtBuilder.concatenationBuilder != nil {
 		concat := a.stmtBuilder.concatenationBuilder.build()
 		a.stmtBuilder.concatenationBuilder = nil
-		a.stmtBuilder.addParamValue(concat)
+		a.stmtBuilder.addParamValue(concat, nil)
 	}
 }
 
 func (a *AST) addStringValue(text string) {
-	a.stmtBuilder.addParamValue(&interfaceValue{val: text})
+	a.stmtBuilder.addParamValue(&interfaceValue{val: text}, InterfaceNode{i: text})
 }
 
 func (a *AST) addParamRefValue(text string) {
-	a.stmtBuilder.addRef(text)
-	a.stmtBuilder.addParamValue(&referenceValue{ref: text})
+	a.stmtBuilder.addParamValue(&referenceValue{ref: text}, RefNode{key: text})
 }
 
 func (a *AST) addParamHoleValue(text string) {
-	a.stmtBuilder.addHole(text)
-	a.stmtBuilder.addParamValue(NewHoleValue(text))
+	a.stmtBuilder.addParamValue(NewHoleValue(text), HoleNode{key: text})
 }
 
 func (a *AST) addAliasParam(text string) {
-	a.stmtBuilder.addAlias(text)
-	a.stmtBuilder.addParamValue(&aliasValue{alias: text})
+	a.stmtBuilder.addParamValue(&aliasValue{alias: text}, AliasNode{key: text})
 }
 
 type listValueBuilder struct {
-	vals []CompositeValue
+	vals     []CompositeValue
+	elements []interface{}
 }
 
-func (c *listValueBuilder) add(v CompositeValue) *listValueBuilder {
+func (c *listValueBuilder) add(v CompositeValue, node interface{}) *listValueBuilder {
 	c.vals = append(c.vals, v)
+	c.elements = append(c.elements, node)
 	return c
 }
 
-func (c *listValueBuilder) build() CompositeValue {
-	return &listValue{c.vals}
+func (c *listValueBuilder) build() (CompositeValue, ListNode) {
+	list := &listValue{c.vals}
+	node := ListNode{arr: c.elements}
+	return list, node
 }
 
 type concatenationValueBuilder struct {
