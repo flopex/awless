@@ -116,6 +116,10 @@ type ListNode struct {
 	arr []interface{}
 }
 
+func NewListNode(arr []interface{}) ListNode {
+	return ListNode{arr: arr}
+}
+
 func (n ListNode) String() string {
 	var a []string
 	for _, e := range n.arr {

@@ -48,7 +48,7 @@ func ProcessRefs(tree *AST, fillers map[string]interface{}) {
 		if done {
 			switch p := parent.(type) {
 			case ListNode:
-
+				p.arr[ctx.listIndex] = val
 			case *CommandNode:
 				p.ParamNodes[ctx.key] = val
 			case *RightExpressionNode:
@@ -63,7 +63,7 @@ func RemoveOptionalHoles(tree *AST) {
 		if node.IsOptional() {
 			switch p := parent.(type) {
 			case ListNode:
-
+				p.arr = append(p.arr[:ctx.listIndex], p.arr[ctx.listIndex+1:]...)
 			case *CommandNode:
 				delete(p.ParamNodes, ctx.key)
 			case *RightExpressionNode:
@@ -89,9 +89,20 @@ func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interfac
 			if k == node.key {
 				done = true
 				val = v
-				switch v.(type) {
-				case AliasNode, ListNode, RefNode, HoleNode:
+				switch vv := v.(type) {
+				case AliasNode, RefNode, HoleNode:
 					processed[k] = fmt.Sprint(v)
+				case ListNode:
+					var arr []interface{}
+					for _, a := range vv.arr {
+						switch e := a.(type) {
+						case AliasNode, RefNode, HoleNode:
+							arr = append(arr, fmt.Sprint(e))
+						default:
+							arr = append(arr, e)
+						}
+					}
+					processed[k] = arr
 				default:
 					processed[k] = v
 				}
@@ -101,7 +112,7 @@ func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interfac
 		if done {
 			switch p := parent.(type) {
 			case ListNode:
-
+				p.arr[ctx.listIndex] = val
 			case *CommandNode:
 				p.ParamNodes[ctx.key] = val
 			case *RightExpressionNode:
@@ -124,13 +135,13 @@ func ProcessAliases(tree *AST, aliasFunc func(action, entity string, key string)
 	tree.visitAliases(func(ctx *visitContext, parent interface{}, node AliasNode) {
 		resolv, hasResolv := aliasFunc(ctx.action, ctx.entity, ctx.key)(node.key)
 		if hasResolv {
-			switch par := parent.(type) {
+			switch p := parent.(type) {
 			case ListNode:
-
+				p.arr[ctx.listIndex] = resolv
 			case *CommandNode:
-				par.ParamNodes[ctx.key] = resolv
+				p.ParamNodes[ctx.key] = resolv
 			case *RightExpressionNode:
-				par.i = resolv
+				p.i = resolv
 			}
 		}
 	})
@@ -139,6 +150,7 @@ func ProcessAliases(tree *AST, aliasFunc func(action, entity string, key string)
 type visitContext struct {
 	action, entity, key string
 	declaredVariables   []string
+	listIndex           int
 }
 
 func (a *AST) visitRefs(visit func(*visitContext, interface{}, RefNode), contexts ...*visitContext) {
@@ -158,7 +170,8 @@ func (a *AST) visitRefs(visit func(*visitContext, interface{}, RefNode), context
 				case RefNode:
 					visit(ctx, st, p)
 				case ListNode:
-					for _, el := range p.arr {
+					for i, el := range p.arr {
+						ctx.listIndex = i
 						if ref, ok := el.(RefNode); ok {
 							visit(ctx, p, ref)
 						}
@@ -176,7 +189,8 @@ func (a *AST) visitRefs(visit func(*visitContext, interface{}, RefNode), context
 					case RefNode:
 						visit(ctx, node, p)
 					case ListNode:
-						for _, el := range p.arr {
+						for i, el := range p.arr {
+							ctx.listIndex = i
 							if ref, ok := el.(RefNode); ok {
 								visit(ctx, p, ref)
 							}
@@ -206,7 +220,8 @@ func (a *AST) visitHoles(visit func(*visitContext, interface{}, HoleNode)) {
 				case HoleNode:
 					visit(ctx, st, p)
 				case ListNode:
-					for _, el := range p.arr {
+					for i, el := range p.arr {
+						ctx.listIndex = i
 						if hole, ok := el.(HoleNode); ok {
 							visit(ctx, p, hole)
 						}
@@ -224,7 +239,8 @@ func (a *AST) visitHoles(visit func(*visitContext, interface{}, HoleNode)) {
 					case HoleNode:
 						visit(ctx, node, p)
 					case ListNode:
-						for _, el := range p.arr {
+						for i, el := range p.arr {
+							ctx.listIndex = i
 							if hole, ok := el.(HoleNode); ok {
 								visit(ctx, p, hole)
 							}
@@ -253,7 +269,8 @@ func (a *AST) visitAliases(visit func(ctx *visitContext, parent interface{}, nod
 				case AliasNode:
 					visit(ctx, st, p)
 				case ListNode:
-					for _, el := range p.arr {
+					for i, el := range p.arr {
+						ctx.listIndex = i
 						if alias, ok := el.(AliasNode); ok {
 							visit(ctx, p, alias)
 						}
@@ -271,7 +288,8 @@ func (a *AST) visitAliases(visit func(ctx *visitContext, parent interface{}, nod
 						ctx.key = p.key
 						visit(ctx, node, p)
 					case ListNode:
-						for _, el := range p.arr {
+						for i, el := range p.arr {
+							ctx.listIndex = i
 							if alias, ok := el.(AliasNode); ok {
 								ctx.key = alias.key
 								visit(ctx, p, alias)

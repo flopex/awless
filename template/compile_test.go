@@ -240,7 +240,7 @@ func TestExternallyProvidedParams(t *testing.T) {
 			template:            `create loadbalancer name=elbv2 subnets={my.subnets}`,
 			externalParams:      "my.subnets=[@sub1, @sub2]",
 			expect:              `create loadbalancer name=elbv2 subnets=[subnet-123,subnet-234]`,
-			expProcessedFillers: map[string]interface{}{"my.subnets": []string{"@sub1", "@sub2"}},
+			expProcessedFillers: map[string]interface{}{"my.subnets": []interface{}{"@sub1", "@sub2"}},
 		},
 		{
 			template:            `create loadbalancer name={my.name} subnets={my.subnets}`,

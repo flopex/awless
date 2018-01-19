@@ -290,7 +290,7 @@ func (c *CommandNode) ToFillerParams() map[string]interface{} {
 			for _, a := range vv.arr {
 				arr = append(arr, fn(k, a))
 			}
-			params[k] = arr
+			params[k] = NewListNode(arr)
 		}
 	}
 	return params
