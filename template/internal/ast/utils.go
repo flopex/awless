@@ -1,5 +1,29 @@
 package ast
 
+func ProcessRefs(tree *AST, fillers map[string]interface{}) {
+	tree.visitRefs(func(ctx visitContext, parent interface{}, node RefNode) {
+		var done bool
+		var val interface{}
+		for k, v := range fillers {
+			if k == node.key {
+				done = true
+				val = v
+			}
+		}
+
+		if done {
+			switch p := parent.(type) {
+			case ListNode:
+
+			case *CommandNode:
+				p.ParamNodes[ctx.key] = val
+			case *RightExpressionNode:
+				p.i = val
+			}
+		}
+	})
+}
+
 func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interface{} {
 	processed := make(map[string]interface{})
 	tree.visitHoles(func(ctx visitContext, parent interface{}, node HoleNode) {
@@ -46,6 +70,52 @@ func ProcessAliases(tree *AST, aliasFunc func(action, entity string, key string)
 
 type visitContext struct {
 	action, entity, key string
+}
+
+func (a *AST) visitRefs(visit func(visitContext, interface{}, RefNode)) {
+	ctx := visitContext{}
+	for _, sts := range a.Statements {
+		switch node := sts.Node.(type) {
+		case *CommandNode:
+			ctx.action, ctx.entity = node.Action, node.Entity
+			for pKey, pNode := range node.ParamNodes {
+				ctx.key = pKey
+				switch p := pNode.(type) {
+				case RefNode:
+					visit(ctx, node, p)
+				case ListNode:
+					for _, el := range p.arr {
+						if ref, ok := el.(RefNode); ok {
+							visit(ctx, p, ref)
+						}
+					}
+				}
+			}
+		case *DeclarationNode:
+			expr := sts.Node.(*DeclarationNode).Expr
+			switch node := expr.(type) {
+			case *CommandNode:
+				ctx.action, ctx.entity = node.Action, node.Entity
+				for pKey, pNode := range node.ParamNodes {
+					ctx.key = pKey
+					switch p := pNode.(type) {
+					case RefNode:
+						visit(ctx, node, p)
+					case ListNode:
+						for _, el := range p.arr {
+							if ref, ok := el.(RefNode); ok {
+								visit(ctx, p, ref)
+							}
+						}
+					}
+				}
+			case *RightExpressionNode:
+				if ref, ok := node.i.(RefNode); ok {
+					visit(ctx, node, ref)
+				}
+			}
+		}
+	}
 }
 
 func (a *AST) visitHoles(visit func(visitContext, interface{}, HoleNode)) {

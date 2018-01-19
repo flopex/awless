@@ -12,6 +12,10 @@ type RightExpressionNode struct {
 	i interface{}
 }
 
+func (n *RightExpressionNode) Node() interface{} {
+	return n.i
+}
+
 func (n *RightExpressionNode) Result() interface{} {
 	switch v := n.i.(type) {
 	case InterfaceNode:
@@ -59,12 +63,20 @@ type RefNode struct {
 	key string
 }
 
+func (n RefNode) clone() Node {
+	return n
+}
+
 func (n RefNode) String() string {
 	return "$" + n.key
 }
 
 type AliasNode struct {
 	key string
+}
+
+func (n AliasNode) clone() Node {
+	return n
 }
 
 func (n AliasNode) String() string {
@@ -91,6 +103,10 @@ func (n ListNode) String() string {
 	return "[" + strings.Join(a, ",") + "]"
 }
 
+func (n ListNode) clone() Node {
+	return n
+}
+
 type InterfaceNode struct {
 	i interface{}
 }
@@ -102,4 +118,8 @@ func (n InterfaceNode) String() string {
 	default:
 		return fmt.Sprint(v)
 	}
+}
+
+func (n InterfaceNode) clone() Node {
+	return n
 }

@@ -269,7 +269,20 @@ func inlineVariableValuePass(tpl *Template, cenv env.Compiling) (*Template, env.
 					continue
 				}
 			}
+
+			if right, isRightExpr := decl.Expr.(*ast.RightExpressionNode); isRightExpr {
+				if res := right.Result(); res != nil {
+					cenv.Push(env.RESOLVED_VARS, map[string]interface{}{decl.Ident: res})
+				}
+
+				ast.ProcessRefs(
+					&ast.AST{Statements: tpl.Statements[i+1:]},
+					map[string]interface{}{decl.Ident: right.Node()},
+				)
+				continue
+			}
 		}
+
 		newTpl.Statements = append(newTpl.Statements, st)
 	}
 	return newTpl, cenv, nil

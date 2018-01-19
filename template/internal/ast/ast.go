@@ -90,7 +90,7 @@ func (c *CommandNode) String() string {
 	var all []string
 
 	for k, v := range c.ParamNodes {
-		all = append(all, fmt.Sprintf("%s=%s", k, v))
+		all = append(all, fmt.Sprintf("%s=%v", k, v))
 	}
 
 	sort.Strings(all)
@@ -110,11 +110,15 @@ func (c *CommandNode) clone() Node {
 	cmd := &CommandNode{
 		Command: c.Command,
 		Action:  c.Action, Entity: c.Entity,
-		Params: make(map[string]CompositeValue),
+		Params:     make(map[string]CompositeValue),
+		ParamNodes: make(map[string]interface{}),
 	}
 
 	for k, v := range c.Params {
 		cmd.Params[k] = v.Clone()
+	}
+	for k, v := range c.ParamNodes {
+		cmd.ParamNodes[k] = v
 	}
 	return cmd
 }
