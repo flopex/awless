@@ -1,9 +1,41 @@
 package ast
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+func VerifyRefs(tree *AST) error {
+	var errs []string
+	add := func(err string) {
+		errs = append(errs, err)
+	}
+
+	newCtx := new(visitContext)
+	tree.visitRefs(func(ctx *visitContext, parent interface{}, node RefNode) {
+		if !contains(ctx.declaredVariables, node.key) {
+			add(fmt.Sprintf("using reference '$%s' but '%[1]s' is undefined in template", node.key))
+		}
+	}, newCtx)
+
+	allDeclaredVariables := newCtx.declaredVariables
+
+	for i, declared := range allDeclaredVariables {
+		if contains(allDeclaredVariables[:i], declared) {
+			add(fmt.Sprintf("using reference '$%s' but '%[1]s' has already been assigned in template", declared))
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+
+	return nil
+}
 
 func ProcessRefs(tree *AST, fillers map[string]interface{}) {
-	tree.visitRefs(func(ctx visitContext, parent interface{}, node RefNode) {
+	tree.visitRefs(func(ctx *visitContext, parent interface{}, node RefNode) {
 		var done bool
 		var val interface{}
 		for k, v := range fillers {
@@ -27,7 +59,7 @@ func ProcessRefs(tree *AST, fillers map[string]interface{}) {
 }
 
 func RemoveOptionalHoles(tree *AST) {
-	tree.visitHoles(func(ctx visitContext, parent interface{}, node HoleNode) {
+	tree.visitHoles(func(ctx *visitContext, parent interface{}, node HoleNode) {
 		if node.IsOptional() {
 			switch p := parent.(type) {
 			case ListNode:
@@ -42,7 +74,7 @@ func RemoveOptionalHoles(tree *AST) {
 }
 
 func CollectHoles(tree *AST) (holes []HoleNode) {
-	tree.visitHoles(func(ctx visitContext, parent interface{}, node HoleNode) {
+	tree.visitHoles(func(ctx *visitContext, parent interface{}, node HoleNode) {
 		holes = append(holes, node)
 	})
 	return
@@ -50,7 +82,7 @@ func CollectHoles(tree *AST) (holes []HoleNode) {
 
 func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interface{} {
 	processed := make(map[string]interface{})
-	tree.visitHoles(func(ctx visitContext, parent interface{}, node HoleNode) {
+	tree.visitHoles(func(ctx *visitContext, parent interface{}, node HoleNode) {
 		var done bool
 		var val interface{}
 		for k, v := range fillers {
@@ -82,14 +114,14 @@ func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interfac
 }
 
 func CollectAliases(tree *AST) (aliases []AliasNode) {
-	tree.visitAliases(func(ctx visitContext, parent interface{}, node AliasNode) {
+	tree.visitAliases(func(ctx *visitContext, parent interface{}, node AliasNode) {
 		aliases = append(aliases, node)
 	})
 	return
 }
 
 func ProcessAliases(tree *AST, aliasFunc func(action, entity string, key string) func(string) (string, bool)) {
-	tree.visitAliases(func(ctx visitContext, parent interface{}, node AliasNode) {
+	tree.visitAliases(func(ctx *visitContext, parent interface{}, node AliasNode) {
 		resolv, hasResolv := aliasFunc(ctx.action, ctx.entity, ctx.key)(node.key)
 		if hasResolv {
 			switch par := parent.(type) {
@@ -106,10 +138,16 @@ func ProcessAliases(tree *AST, aliasFunc func(action, entity string, key string)
 
 type visitContext struct {
 	action, entity, key string
+	declaredVariables   []string
 }
 
-func (a *AST) visitRefs(visit func(visitContext, interface{}, RefNode)) {
-	ctx := visitContext{}
+func (a *AST) visitRefs(visit func(*visitContext, interface{}, RefNode), contexts ...*visitContext) {
+	var ctx *visitContext
+	if len(contexts) > 0 {
+		ctx = contexts[0]
+	} else {
+		ctx = new(visitContext)
+	}
 	for _, sts := range a.Statements {
 		switch st := sts.Node.(type) {
 		case *CommandNode:
@@ -151,12 +189,13 @@ func (a *AST) visitRefs(visit func(visitContext, interface{}, RefNode)) {
 					visit(ctx, node, ref)
 				}
 			}
+			ctx.declaredVariables = append(ctx.declaredVariables, st.Ident)
 		}
 	}
 }
 
-func (a *AST) visitHoles(visit func(visitContext, interface{}, HoleNode)) {
-	ctx := visitContext{}
+func (a *AST) visitHoles(visit func(*visitContext, interface{}, HoleNode)) {
+	ctx := new(visitContext)
 	for _, sts := range a.Statements {
 		switch st := sts.Node.(type) {
 		case *CommandNode:
@@ -202,8 +241,8 @@ func (a *AST) visitHoles(visit func(visitContext, interface{}, HoleNode)) {
 	}
 }
 
-func (a *AST) visitAliases(visit func(ctx visitContext, parent interface{}, node AliasNode)) {
-	ctx := visitContext{}
+func (a *AST) visitAliases(visit func(ctx *visitContext, parent interface{}, node AliasNode)) {
+	ctx := new(visitContext)
 	for _, sts := range a.Statements {
 		switch st := sts.Node.(type) {
 		case *CommandNode:
@@ -248,4 +287,13 @@ func (a *AST) visitAliases(visit func(ctx visitContext, parent interface{}, node
 			}
 		}
 	}
+}
+
+func contains(arr []string, s string) bool {
+	for _, v := range arr {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }

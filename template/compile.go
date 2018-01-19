@@ -201,40 +201,7 @@ func validateCommandsPass(tpl *Template, cenv env.Compiling) (*Template, env.Com
 }
 
 func checkInvalidReferenceDeclarationsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
-	knownRefs := make(map[string]bool)
-
-	var each = func(withRef ast.WithRefs) error {
-		for _, ref := range withRef.GetRefs() {
-			if _, ok := knownRefs[ref]; !ok {
-				return fmt.Errorf("using reference '$%s' but '%s' is undefined in template\n", ref, ref)
-			}
-		}
-		return nil
-	}
-
-	for _, st := range tpl.Statements {
-		switch n := st.Node.(type) {
-		case ast.WithRefs:
-			if err := each(n); err != nil {
-				return tpl, cenv, err
-			}
-		case *ast.DeclarationNode:
-			expr := st.Node.(*ast.DeclarationNode).Expr
-			switch nn := expr.(type) {
-			case ast.WithRefs:
-				if err := each(nn); err != nil {
-					return tpl, cenv, err
-				}
-			}
-			ref := n.Ident
-			if _, ok := knownRefs[ref]; ok {
-				return tpl, cenv, fmt.Errorf("using reference '$%s' but '%s' has already been assigned in template\n", ref, ref)
-			}
-			knownRefs[ref] = true
-		}
-	}
-
-	return tpl, cenv, nil
+	return tpl, cenv, ast.VerifyRefs(tpl.AST)
 }
 
 func inlineVariableValuePass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {

@@ -63,6 +63,10 @@ type RefNode struct {
 	key string
 }
 
+func NewRefNode(s string) RefNode {
+	return RefNode{key: s}
+}
+
 func (n RefNode) clone() Node {
 	return n
 }
