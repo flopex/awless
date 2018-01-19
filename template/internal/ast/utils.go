@@ -24,6 +24,28 @@ func ProcessRefs(tree *AST, fillers map[string]interface{}) {
 	})
 }
 
+func RemoveOptionalHoles(tree *AST) {
+	tree.visitHoles(func(ctx visitContext, parent interface{}, node HoleNode) {
+		if node.IsOptional() {
+			switch p := parent.(type) {
+			case ListNode:
+
+			case *CommandNode:
+				delete(p.ParamNodes, ctx.key)
+			case *RightExpressionNode:
+				p.i = nil
+			}
+		}
+	})
+}
+
+func CollectHoles(tree *AST) (holes []HoleNode) {
+	tree.visitHoles(func(ctx visitContext, parent interface{}, node HoleNode) {
+		holes = append(holes, node)
+	})
+	return
+}
+
 func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interface{} {
 	processed := make(map[string]interface{})
 	tree.visitHoles(func(ctx visitContext, parent interface{}, node HoleNode) {
@@ -50,6 +72,13 @@ func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interfac
 	})
 
 	return processed
+}
+
+func CollectAliases(tree *AST) (aliases []AliasNode) {
+	tree.visitAliases(func(ctx visitContext, parent interface{}, node AliasNode) {
+		aliases = append(aliases, node)
+	})
+	return
 }
 
 func ProcessAliases(tree *AST, aliasFunc func(action, entity string, key string) func(string) (string, bool)) {

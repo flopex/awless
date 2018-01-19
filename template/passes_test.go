@@ -48,12 +48,12 @@ func TestBailOnUnresolvedAliasOrHoles(t *testing.T) {
 		expHolesErr string
 	}{
 		{tpl: "create subnet\ncreate instance subnet=@mysubnet name={instance.name}\ncreate instance", expAliasErr: "unresolved alias", expHolesErr: "unresolved holes"},
-		{tpl: "create subnet\ncreate instance subnet=@mysubnet\ncreate instance", expAliasErr: "unresolved alias: [mysubnet]"},
-		{tpl: "create subnet hole=@myhole\ncreate instance subnet=@mysubnet\ncreate instance", expAliasErr: "unresolved alias: [myhole mysubnet]"},
-		{tpl: "create subnet name=subnet\nname=@myinstance\ncreate instance name=$myinstance\ncreate instance", expAliasErr: "unresolved alias: [myinstance]"},
-		{tpl: "create subnet\ncreate instance name={instance.name}\ncreate instance", expHolesErr: "unresolved holes: [instance.name]"},
-		{tpl: "create subnet\ncreate instance name={instance.name}\ncreate instance\ncreate subnet name={subnet.name}", expHolesErr: "unresolved holes: [instance.name subnet.name]"},
-		{tpl: "subnetname = {subnet.name} create subnet name=$subnetname\ncreate instance name=instancename\ncreate instance", expHolesErr: "unresolved holes: [subnet.name]"},
+		{tpl: "create subnet\ncreate instance subnet=@mysubnet\ncreate instance", expAliasErr: "unresolved alias: [@mysubnet]"},
+		{tpl: "create subnet hole=@myhole\ncreate instance subnet=@mysubnet\ncreate instance", expAliasErr: "unresolved alias: [@myhole @mysubnet]"},
+		{tpl: "create subnet name=subnet\nname=@myinstance\ncreate instance name=$myinstance\ncreate instance", expAliasErr: "unresolved alias: [@myinstance]"},
+		{tpl: "create subnet\ncreate instance name={instance.name}\ncreate instance", expHolesErr: "unresolved holes: [{instance.name}]"},
+		{tpl: "create subnet\ncreate instance name={instance.name}\ncreate instance\ncreate subnet name={subnet.name}", expHolesErr: "unresolved holes: [{instance.name} {subnet.name}]"},
+		{tpl: "subnetname = {subnet.name} create subnet name=$subnetname\ncreate instance name=instancename\ncreate instance", expHolesErr: "unresolved holes: [{subnet.name}]"},
 		{tpl: "create subnet\ncreate instance name=instancename\ncreate instance\ncreate subnet subnet=name"},
 	}
 
@@ -291,7 +291,7 @@ func TestResolveAliasPass(t *testing.T) {
 		return vals[v]
 	}).Build()
 
-	cenv.Push(env.FILLERS, map[string]interface{}{"instance.ami": ast.NewAliasValue("my-ami")})
+	cenv.Push(env.FILLERS, map[string]interface{}{"instance.ami": ast.NewAliasNode("my-ami")})
 
 	pass := newMultiPass(resolveHolesPass, resolveAliasPass)
 
@@ -397,6 +397,7 @@ type parameters map[string]interface{}
 type holesKeys map[string][]string
 
 func assertVariableValues(t *testing.T, tpl *Template, exp ...interface{}) {
+	t.Helper()
 	for i, decl := range tpl.expressionNodesIterator() {
 		if vn, ok := decl.(*ast.ValueNode); ok {
 			if got, want := vn.Value.Value(), exp[i]; !reflect.DeepEqual(got, want) {
@@ -408,6 +409,7 @@ func assertVariableValues(t *testing.T, tpl *Template, exp ...interface{}) {
 }
 
 func assertCmdParams(t *testing.T, tpl *Template, exp ...parameters) {
+	t.Helper()
 	for i, cmd := range tpl.CommandNodesIterator() {
 		if got, want := parameters(cmd.ToDriverParams()), exp[i]; !reflect.DeepEqual(got, want) {
 			t.Fatalf("params: cmd %d: \ngot\n%v\n\nwant\n%v\n", i+1, got, want)
@@ -416,6 +418,7 @@ func assertCmdParams(t *testing.T, tpl *Template, exp ...parameters) {
 }
 
 func assertCmdHoles(t *testing.T, tpl *Template, exp ...holesKeys) {
+	t.Helper()
 	for i, cmd := range tpl.CommandNodesIterator() {
 		h := make(map[string][]string)
 		for k, p := range cmd.Params {
@@ -427,14 +430,6 @@ func assertCmdHoles(t *testing.T, tpl *Template, exp ...holesKeys) {
 		}
 		if got, want := holesKeys(h), exp[i]; !reflect.DeepEqual(got, want) {
 			t.Fatalf("holes keys: cmd %d: \ngot\n%v\n\nwant\n%v\n", i+1, got, want)
-		}
-	}
-}
-
-func checkContainsAll(t *testing.T, s, chars string) {
-	for _, e := range chars {
-		if !strings.ContainsRune(s, e) {
-			t.Fatalf("%s does not contain '%q'", s, e)
 		}
 	}
 }

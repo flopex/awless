@@ -243,9 +243,13 @@ func (c *CommandNode) IsRef(key string) bool {
 
 func (c *CommandNode) ToDriverParams() map[string]interface{} {
 	params := make(map[string]interface{})
-	for k, v := range c.Params {
-		if v.Value() != nil {
-			params[k] = v.Value()
+	for k, v := range c.ParamNodes {
+		switch node := v.(type) {
+		case InterfaceNode:
+			params[k] = node.i
+		case RefNode, HoleNode, AliasNode:
+		default:
+			params[k] = node
 		}
 	}
 	return params

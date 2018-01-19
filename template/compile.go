@@ -128,6 +128,7 @@ func processAndValidateParamsPass(tpl *Template, cenv env.Compiling) (*Template,
 		for _, e := range missingRequired {
 			normalized := fmt.Sprintf("%s.%s", node.Entity, e)
 			node.Params[e] = ast.NewHoleValue(normalized)
+			node.ParamNodes[e] = ast.NewHoleNode(normalized)
 		}
 		if err := params.Run(rule, node.Keys()); err != nil {
 			return cmdErr(node, err)
@@ -145,7 +146,9 @@ func processAndValidateParamsPass(tpl *Template, cenv env.Compiling) (*Template,
 		}
 
 		for _, e := range suggested {
-			node.Params[e] = ast.NewOptionalHoleValue(fmt.Sprintf("%s.%s", node.Entity, e))
+			key := fmt.Sprintf("%s.%s", node.Entity, e)
+			node.Params[e] = ast.NewOptionalHoleValue(key)
+			node.ParamNodes[e] = ast.NewOptionalHoleNode(key)
 		}
 		return nil
 	}
@@ -354,6 +357,9 @@ func resolveMissingHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.
 		cenv.Push(env.PROCESSED_FILLERS, processed)
 	})
 
+	processed := ast.ProcessHoles(tpl.AST, cenv.Get(env.FILLERS))
+	cenv.Push(env.PROCESSED_FILLERS, processed)
+
 	return tpl, cenv, nil
 }
 
@@ -379,6 +385,7 @@ func removeOptionalHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.
 		return nil
 	}
 	err := tpl.visitCommandNodesE(removeOptionalHoles)
+	ast.RemoveOptionalHoles(tpl.AST)
 	return tpl, cenv, err
 }
 
@@ -415,7 +422,6 @@ func resolveAliasPass(tpl *Template, cenv env.Compiling) (*Template, env.Compili
 			}
 		}
 	}
-
 	ast.ProcessAliases(tpl.AST, resolvAliasFunc)
 
 	switch len(emptyResolv) {
@@ -433,11 +439,9 @@ func resolveAliasPass(tpl *Template, cenv env.Compiling) (*Template, env.Compili
 
 func failOnUnresolvedHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
 	uniqueUnresolved := make(map[string]struct{})
-	tpl.visitHoles(func(withHole ast.WithHoles) {
-		for hole := range withHole.GetHoles() {
-			uniqueUnresolved[hole] = struct{}{}
-		}
-	})
+	for _, hole := range ast.CollectHoles(tpl.AST) {
+		uniqueUnresolved[hole.String()] = struct{}{}
+	}
 
 	var unresolved []string
 	for k := range uniqueUnresolved {
@@ -453,30 +457,19 @@ func failOnUnresolvedHolesPass(tpl *Template, cenv env.Compiling) (*Template, en
 }
 
 func failOnUnresolvedAliasPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
-	var unresolved []string
+	uniqueUnresolved := make(map[string]struct{})
 
-	visitAliases := func(withAlias ast.WithAlias) {
-		for _, alias := range withAlias.GetAliases() {
-			unresolved = append(unresolved, alias)
-		}
+	for _, alias := range ast.CollectAliases(tpl.AST) {
+		uniqueUnresolved[alias.String()] = struct{}{}
 	}
 
-	for _, n := range tpl.expressionNodesIterator() {
-		switch nn := n.(type) {
-		case *ast.ValueNode:
-			if withAlias, ok := nn.Value.(ast.WithAlias); ok {
-				visitAliases(withAlias)
-			}
-		case *ast.CommandNode:
-			for _, param := range nn.Params {
-				if withAlias, ok := param.(ast.WithAlias); ok {
-					visitAliases(withAlias)
-				}
-			}
-		}
+	var unresolved []string
+	for k := range uniqueUnresolved {
+		unresolved = append(unresolved, k)
 	}
 
 	if len(unresolved) > 0 {
+		sort.Strings(unresolved)
 		return tpl, cenv, fmt.Errorf("template contains unresolved alias: %v", unresolved)
 	}
 

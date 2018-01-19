@@ -75,6 +75,10 @@ type AliasNode struct {
 	key string
 }
 
+func NewAliasNode(s string) AliasNode {
+	return AliasNode{key: s}
+}
+
 func (n AliasNode) clone() Node {
 	return n
 }
@@ -84,7 +88,20 @@ func (n AliasNode) String() string {
 }
 
 type HoleNode struct {
-	key string
+	key      string
+	optional bool
+}
+
+func NewHoleNode(s string) HoleNode {
+	return HoleNode{key: s}
+}
+
+func NewOptionalHoleNode(s string) HoleNode {
+	return HoleNode{key: s, optional: true}
+}
+
+func (n HoleNode) IsOptional() bool {
+	return n.optional
 }
 
 func (n HoleNode) String() string {
