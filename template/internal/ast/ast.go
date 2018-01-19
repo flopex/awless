@@ -19,9 +19,7 @@ package ast
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/wallix/awless/template/env"
@@ -270,11 +268,29 @@ func (c *CommandNode) ToDriverParamsExcludingRefs() map[string]interface{} {
 
 func (c *CommandNode) ToFillerParams() map[string]interface{} {
 	params := make(map[string]interface{})
-	for k, v := range c.Params {
-		if v.Value() != nil {
-			params[k] = v.Value()
-		} else if _, ok := v.(WithAlias); ok {
-			params[k] = v
+	fn := func(k string, v interface{}) interface{} {
+		switch vv := v.(type) {
+		case InterfaceNode:
+			return vv.i
+		case AliasNode:
+			return v
+		}
+		return nil
+	}
+
+	for k, v := range c.ParamNodes {
+		i := fn(k, v)
+		if i != nil {
+			params[k] = i
+			continue
+		}
+		switch vv := v.(type) {
+		case ListNode:
+			var arr []interface{}
+			for _, a := range vv.arr {
+				arr = append(arr, fn(k, a))
+			}
+			params[k] = arr
 		}
 	}
 	return params
@@ -399,41 +415,4 @@ func (a *AST) Clone() *AST {
 		clone.Statements = append(clone.Statements, stat.Clone())
 	}
 	return clone
-}
-
-var SimpleStringValue = regexp.MustCompile("^[a-zA-Z0-9-._:/+;~@<>*]+$") // in sync with [a-zA-Z0-9-._:/+;~@<>]+ in PEG (with ^ and $ around)
-
-func quoteStringIfNeeded(input string) string {
-	if _, err := strconv.Atoi(input); err == nil {
-		return "'" + input + "'"
-	}
-	if _, err := strconv.ParseFloat(input, 64); err == nil {
-		return "'" + input + "'"
-	}
-	if SimpleStringValue.MatchString(input) {
-		return input
-	} else {
-		return quoteString(input)
-	}
-}
-
-func quoteString(str string) string {
-	if strings.ContainsRune(str, '\'') {
-		return "\"" + str + "\""
-	} else {
-		return "'" + str + "'"
-	}
-}
-
-func isQuoted(str string) bool {
-	if len(str) < 2 {
-		return false
-	}
-	if str[0] == '\'' && str[len(str)-1] == '\'' {
-		return true
-	}
-	if str[0] == '"' && str[len(str)-1] == '"' {
-		return true
-	}
-	return false
 }

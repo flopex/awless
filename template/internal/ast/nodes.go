@@ -132,6 +132,8 @@ func (n InterfaceNode) String() string {
 	switch v := n.i.(type) {
 	case []string:
 		return "[" + strings.Join(v, ",") + "]"
+	case string:
+		return quoteStringIfNeeded(v)
 	default:
 		return fmt.Sprint(v)
 	}

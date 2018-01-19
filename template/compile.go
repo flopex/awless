@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/wallix/awless/template/env"
 	"github.com/wallix/awless/template/internal/ast"
@@ -202,14 +201,6 @@ func validateCommandsPass(tpl *Template, cenv env.Compiling) (*Template, env.Com
 }
 
 func checkInvalidReferenceDeclarationsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
-	usedRefs := make(map[string]struct{})
-
-	for _, withRef := range tpl.WithRefsIterator() {
-		for _, ref := range withRef.GetRefs() {
-			usedRefs[ref] = struct{}{}
-		}
-	}
-
 	knownRefs := make(map[string]bool)
 
 	var each = func(withRef ast.WithRefs) error {
@@ -235,9 +226,7 @@ func checkInvalidReferenceDeclarationsPass(tpl *Template, cenv env.Compiling) (*
 					return tpl, cenv, err
 				}
 			}
-		}
-		if decl, isDecl := st.Node.(*ast.DeclarationNode); isDecl {
-			ref := decl.Ident
+			ref := n.Ident
 			if _, ok := knownRefs[ref]; ok {
 				return tpl, cenv, fmt.Errorf("using reference '$%s' but '%s' has already been assigned in template\n", ref, ref)
 			}
@@ -292,11 +281,6 @@ func inlineVariableValuePass(tpl *Template, cenv env.Compiling) (*Template, env.
 }
 
 func resolveHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
-	/*tpl.visitHoles(func(h ast.WithHoles) {
-		processed := h.ProcessHoles(cenv.Get(env.FILLERS))
-		cenv.Push(env.PROCESSED_FILLERS, processed)
-	})*/
-
 	processed := ast.ProcessHoles(tpl.AST, cenv.Get(env.FILLERS))
 	cenv.Push(env.PROCESSED_FILLERS, processed)
 
@@ -344,18 +328,13 @@ func resolveMissingHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.
 			}
 			params, err := ParseParams(fmt.Sprintf("%s=%s", k, actual))
 			if err != nil {
-				if params, err = ParseParams(fmt.Sprintf("%s=%s", k, quoteString(actual))); err != nil {
+				if params, err = ParseParams(fmt.Sprintf("%s=%s", k, ast.Quote(actual))); err != nil {
 					return tpl, cenv, err
 				}
 			}
 			cenv.Push(env.FILLERS, map[string]interface{}{k: params[k]})
 		}
 	}
-
-	tpl.visitHoles(func(h ast.WithHoles) {
-		processed := h.ProcessHoles(cenv.Get(env.FILLERS))
-		cenv.Push(env.PROCESSED_FILLERS, processed)
-	})
 
 	processed := ast.ProcessHoles(tpl.AST, cenv.Get(env.FILLERS))
 	cenv.Push(env.PROCESSED_FILLERS, processed)
@@ -503,14 +482,6 @@ func contains(arr []string, s string) bool {
 		}
 	}
 	return false
-}
-
-func quoteString(str string) string {
-	if strings.ContainsRune(str, '\'') {
-		return "\"" + str + "\""
-	} else {
-		return "'" + str + "'"
-	}
 }
 
 func excludeFromSlice(in []string, exclude []string) (out []string) {

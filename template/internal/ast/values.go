@@ -323,7 +323,7 @@ func (c *concatenationValue) String() string {
 	for _, val := range c.vals {
 		str := val.String()
 		if val.Value() != nil && !isQuoted(str) {
-			elems = append(elems, quoteString(str))
+			elems = append(elems, Quote(str))
 			continue
 		}
 		elems = append(elems, str)

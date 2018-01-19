@@ -1,5 +1,7 @@
 package ast
 
+import "fmt"
+
 func ProcessRefs(tree *AST, fillers map[string]interface{}) {
 	tree.visitRefs(func(ctx visitContext, parent interface{}, node RefNode) {
 		var done bool
@@ -55,7 +57,12 @@ func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interfac
 			if k == node.key {
 				done = true
 				val = v
-				processed[k] = v
+				switch v.(type) {
+				case AliasNode, ListNode, RefNode, HoleNode:
+					processed[k] = fmt.Sprint(v)
+				default:
+					processed[k] = v
+				}
 			}
 		}
 

@@ -276,7 +276,7 @@ func TestParamsOnlyParsing(t *testing.T) {
 		input string
 		exp   map[string]interface{}
 	}{
-		{input: "type=t2.micro subnet=@my-subnet count=4", exp: map[string]interface{}{"type": "t2.micro", "subnet": ast.NewAliasValue("my-subnet"), "count": 4}},
+		{input: "type=t2.micro subnet=@my-subnet count=4", exp: map[string]interface{}{"type": "t2.micro", "subnet": ast.NewAliasNode("my-subnet"), "count": 4}},
 		{input: "subnet=[sub-1234,sub-2345]", exp: map[string]interface{}{"subnet": []interface{}{"sub-1234", "sub-2345"}}},
 	}
 	for i, tcase := range tcases {
@@ -695,7 +695,7 @@ mysecondvar = {var-hole}
                        `,
 
 				verifyFn: func(s *Template) error {
-					err := assertVariableDeclarationNode(s.Statements[0].Node, "myname", "my var-value", []string{})
+					err := assertVariableDeclarationNode(s.Statements[0].Node, "myname", "my var-value", "")
 					if err != nil {
 						return err
 					}
@@ -710,7 +710,7 @@ mysecondvar = {var-hole}
 						return err
 					}
 
-					err = assertVariableDeclarationNode(s.Statements[2].Node, "mysecondvar", nil, []string{"var-hole"})
+					err = assertVariableDeclarationNode(s.Statements[2].Node, "mysecondvar", nil, "{var-hole}")
 					if err != nil {
 						return err
 					}
@@ -854,7 +854,7 @@ func assertHoleKeys(n ast.Node, expected map[string][]string) error {
 	return compare(holes, expected)
 }
 
-func assertVariableDeclarationNode(n ast.Node, expIdent string, value interface{}, hole []string) error {
+func assertVariableDeclarationNode(n ast.Node, expIdent string, value interface{}, expHole string) error {
 	if err := isDeclarationNode(n); err != nil {
 		return err
 	}
@@ -863,23 +863,19 @@ func assertVariableDeclarationNode(n ast.Node, expIdent string, value interface{
 	if got, want := decl.Ident, expIdent; got != want {
 		return fmt.Errorf("ident: got '%s' want '%s'", got, want)
 	}
-	if err := isValueNode(decl.Expr); err != nil {
+	if err := isRightExpressionNode(decl.Expr); err != nil {
 		return err
 	}
-	val := decl.Expr.(*ast.ValueNode)
-	if got, want := val.Value.Value(), value; got != want {
+	val := decl.Expr.(*ast.RightExpressionNode)
+	if got, want := val.Result(), value; got != want {
 		return fmt.Errorf("value: got '%s' want '%s'", got, want)
 	}
-	if len(hole) > 0 {
-		withHole, ok := val.Value.(ast.WithHoles)
+	if expHole != "" {
+		hole, ok := val.Node().(ast.HoleNode)
 		if !ok {
-			return fmt.Errorf("hole value: expect '%#v': got no hole (%#v)", hole, val.Value)
+			return fmt.Errorf("hole value: expect '%#v': got no hole (%#v)", expHole, val.Node())
 		}
-		var holesKeys []string
-		for k := range withHole.GetHoles() {
-			holesKeys = append(holesKeys, k)
-		}
-		if got, want := holesKeys, hole; !reflect.DeepEqual(got, want) {
+		if got, want := hole.String(), expHole; !reflect.DeepEqual(got, want) {
 			return fmt.Errorf("hole value: got '%#v' want '%#v'", got, want)
 		}
 	}
@@ -995,11 +991,11 @@ func isDeclarationNode(n ast.Node) error {
 	return nil
 }
 
-func isValueNode(n ast.Node) error {
+func isRightExpressionNode(n ast.Node) error {
 	switch n.(type) {
-	case *ast.ValueNode:
+	case *ast.RightExpressionNode:
 	default:
-		return errors.New("expected value node")
+		return fmt.Errorf("expected right expression node, got %#v", n)
 	}
 	return nil
 }
