@@ -104,14 +104,14 @@ type visitContext struct {
 func (a *AST) visitRefs(visit func(visitContext, interface{}, RefNode)) {
 	ctx := visitContext{}
 	for _, sts := range a.Statements {
-		switch node := sts.Node.(type) {
+		switch st := sts.Node.(type) {
 		case *CommandNode:
-			ctx.action, ctx.entity = node.Action, node.Entity
-			for pKey, pNode := range node.ParamNodes {
+			ctx.action, ctx.entity = st.Action, st.Entity
+			for pKey, pNode := range st.ParamNodes {
 				ctx.key = pKey
 				switch p := pNode.(type) {
 				case RefNode:
-					visit(ctx, node, p)
+					visit(ctx, st, p)
 				case ListNode:
 					for _, el := range p.arr {
 						if ref, ok := el.(RefNode); ok {
@@ -121,7 +121,7 @@ func (a *AST) visitRefs(visit func(visitContext, interface{}, RefNode)) {
 				}
 			}
 		case *DeclarationNode:
-			expr := sts.Node.(*DeclarationNode).Expr
+			expr := st.Expr
 			switch node := expr.(type) {
 			case *CommandNode:
 				ctx.action, ctx.entity = node.Action, node.Entity
@@ -140,6 +140,7 @@ func (a *AST) visitRefs(visit func(visitContext, interface{}, RefNode)) {
 				}
 			case *RightExpressionNode:
 				if ref, ok := node.i.(RefNode); ok {
+					ctx.key = st.Ident
 					visit(ctx, node, ref)
 				}
 			}
@@ -150,14 +151,14 @@ func (a *AST) visitRefs(visit func(visitContext, interface{}, RefNode)) {
 func (a *AST) visitHoles(visit func(visitContext, interface{}, HoleNode)) {
 	ctx := visitContext{}
 	for _, sts := range a.Statements {
-		switch node := sts.Node.(type) {
+		switch st := sts.Node.(type) {
 		case *CommandNode:
-			ctx.action, ctx.entity = node.Action, node.Entity
-			for pKey, pNode := range node.ParamNodes {
+			ctx.action, ctx.entity = st.Action, st.Entity
+			for pKey, pNode := range st.ParamNodes {
 				ctx.key = pKey
 				switch p := pNode.(type) {
 				case HoleNode:
-					visit(ctx, node, p)
+					visit(ctx, st, p)
 				case ListNode:
 					for _, el := range p.arr {
 						if hole, ok := el.(HoleNode); ok {
@@ -167,7 +168,7 @@ func (a *AST) visitHoles(visit func(visitContext, interface{}, HoleNode)) {
 				}
 			}
 		case *DeclarationNode:
-			expr := sts.Node.(*DeclarationNode).Expr
+			expr := st.Expr
 			switch node := expr.(type) {
 			case *CommandNode:
 				ctx.action, ctx.entity = node.Action, node.Entity
@@ -186,6 +187,7 @@ func (a *AST) visitHoles(visit func(visitContext, interface{}, HoleNode)) {
 				}
 			case *RightExpressionNode:
 				if hole, ok := node.i.(HoleNode); ok {
+					ctx.key = st.Ident
 					visit(ctx, node, hole)
 				}
 			}
@@ -196,14 +198,14 @@ func (a *AST) visitHoles(visit func(visitContext, interface{}, HoleNode)) {
 func (a *AST) visitAliases(visit func(ctx visitContext, parent interface{}, node AliasNode)) {
 	ctx := visitContext{}
 	for _, sts := range a.Statements {
-		switch node := sts.Node.(type) {
+		switch st := sts.Node.(type) {
 		case *CommandNode:
-			ctx.action, ctx.entity = node.Action, node.Entity
-			for pKey, pNode := range node.ParamNodes {
+			ctx.action, ctx.entity = st.Action, st.Entity
+			for pKey, pNode := range st.ParamNodes {
 				ctx.key = pKey
 				switch p := pNode.(type) {
 				case AliasNode:
-					visit(ctx, node, p)
+					visit(ctx, st, p)
 				case ListNode:
 					for _, el := range p.arr {
 						if alias, ok := el.(AliasNode); ok {
@@ -213,7 +215,7 @@ func (a *AST) visitAliases(visit func(ctx visitContext, parent interface{}, node
 				}
 			}
 		case *DeclarationNode:
-			expr := sts.Node.(*DeclarationNode).Expr
+			expr := st.Expr
 			switch node := expr.(type) {
 			case *CommandNode:
 				for pKey, pNode := range node.ParamNodes {
@@ -233,6 +235,7 @@ func (a *AST) visitAliases(visit func(ctx visitContext, parent interface{}, node
 				}
 			case *RightExpressionNode:
 				if alias, ok := node.i.(AliasNode); ok {
+					ctx.key = st.Ident
 					visit(ctx, node, alias)
 				}
 			}

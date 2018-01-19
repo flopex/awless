@@ -317,7 +317,9 @@ func TestResolveHolesPass(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assertCmdHoles(t, tpl, map[string][]string{})
+	if holes := ast.CollectHoles(tpl.AST); len(holes) > 0 {
+		t.Fatalf("expected no holes got: %v", holes)
+	}
 	assertCmdParams(t, tpl, map[string]interface{}{"type": "t2.micro", "count": 3})
 }
 
@@ -413,23 +415,6 @@ func assertCmdParams(t *testing.T, tpl *Template, exp ...parameters) {
 	for i, cmd := range tpl.CommandNodesIterator() {
 		if got, want := parameters(cmd.ToDriverParams()), exp[i]; !reflect.DeepEqual(got, want) {
 			t.Fatalf("params: cmd %d: \ngot\n%v\n\nwant\n%v\n", i+1, got, want)
-		}
-	}
-}
-
-func assertCmdHoles(t *testing.T, tpl *Template, exp ...holesKeys) {
-	t.Helper()
-	for i, cmd := range tpl.CommandNodesIterator() {
-		h := make(map[string][]string)
-		for k, p := range cmd.Params {
-			if withHoles, ok := p.(ast.WithHoles); ok && len(withHoles.GetHoles()) > 0 {
-				for key := range withHoles.GetHoles() {
-					h[k] = append(h[k], key)
-				}
-			}
-		}
-		if got, want := holesKeys(h), exp[i]; !reflect.DeepEqual(got, want) {
-			t.Fatalf("holes keys: cmd %d: \ngot\n%v\n\nwant\n%v\n", i+1, got, want)
 		}
 	}
 }
