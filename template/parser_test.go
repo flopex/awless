@@ -277,7 +277,7 @@ func TestParamsOnlyParsing(t *testing.T) {
 		exp   map[string]interface{}
 	}{
 		{input: "type=t2.micro subnet=@my-subnet count=4", exp: map[string]interface{}{"type": "t2.micro", "subnet": ast.NewAliasNode("my-subnet"), "count": 4}},
-		{input: "subnet=[sub-1234,sub-2345]", exp: map[string]interface{}{"subnet": []interface{}{"sub-1234", "sub-2345"}}},
+		{input: "subnet=[sub-1234,sub-2345]", exp: map[string]interface{}{"subnet": ast.NewListNode([]interface{}{"sub-1234", "sub-2345"})}},
 	}
 	for i, tcase := range tcases {
 		params, err := ParseParams(tcase.input)

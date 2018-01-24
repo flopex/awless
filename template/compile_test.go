@@ -212,7 +212,7 @@ create loadbalancer name=mylb subnets=subnet-1, subnet-2
 		}
 
 		if got, want := cenv.Get(env.RESOLVED_VARS), tcase.expResolvedVariables; !reflect.DeepEqual(got, want) {
-			t.Fatalf("%d: got %v, want %v", i+1, got, want)
+			t.Fatalf("%d: got %#v, want %#v", i+1, got, want)
 		}
 	}
 }

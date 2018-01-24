@@ -390,7 +390,7 @@ stop containertask cluster=cl deployment-name=dpname type=service`
 func TestCmdNodeIsRevertible(t *testing.T) {
 	tcases := []struct {
 		line, result string
-		params       map[string]ast.CompositeValue
+		params       map[string]interface{}
 		err          error
 		revertible   bool
 	}{
@@ -409,8 +409,8 @@ func TestCmdNodeIsRevertible(t *testing.T) {
 		{line: "detach routetable", revertible: false},
 		{line: "start alarm", revertible: true},
 		{line: "stop alarm", revertible: true},
-		{line: "start containertask", params: map[string]ast.CompositeValue{"type": ast.NewInterfaceValue("service")}, revertible: true},
-		{line: "start containertask", params: map[string]ast.CompositeValue{"type": ast.NewInterfaceValue("task")}, revertible: true},
+		{line: "start containertask", params: map[string]interface{}{"type": "service"}, revertible: true},
+		{line: "start containertask", params: map[string]interface{}{"type": "task"}, revertible: true},
 	}
 
 	for _, tc := range tcases {
@@ -418,7 +418,7 @@ func TestCmdNodeIsRevertible(t *testing.T) {
 		action, entity := splits[0], splits[1]
 		cmd := &ast.CommandNode{Action: action, Entity: entity, CmdResult: tc.result, CmdErr: tc.err}
 		if tc.params != nil {
-			cmd.Params = tc.params
+			cmd.ParamNodes = tc.params
 		}
 		if tc.revertible != isRevertible(cmd) {
 			t.Fatalf("expected '%s' to have revertible=%t", cmd, tc.revertible)

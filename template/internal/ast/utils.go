@@ -198,9 +198,17 @@ func (a *AST) visitRefs(visit func(*visitContext, interface{}, RefNode), context
 					}
 				}
 			case *RightExpressionNode:
-				if ref, ok := node.i.(RefNode); ok {
-					ctx.key = st.Ident
-					visit(ctx, node, ref)
+				ctx.key = st.Ident
+				switch right := node.i.(type) {
+				case RefNode:
+					visit(ctx, node, right)
+				case ListNode:
+					for i, el := range right.arr {
+						ctx.listIndex = i
+						if ref, ok := el.(RefNode); ok {
+							visit(ctx, right, ref)
+						}
+					}
 				}
 			}
 			ctx.declaredVariables = append(ctx.declaredVariables, st.Ident)
@@ -248,9 +256,17 @@ func (a *AST) visitHoles(visit func(*visitContext, interface{}, HoleNode)) {
 					}
 				}
 			case *RightExpressionNode:
-				if hole, ok := node.i.(HoleNode); ok {
-					ctx.key = st.Ident
-					visit(ctx, node, hole)
+				ctx.key = st.Ident
+				switch right := node.i.(type) {
+				case HoleNode:
+					visit(ctx, node, right)
+				case ListNode:
+					for i, el := range right.arr {
+						ctx.listIndex = i
+						if hole, ok := el.(HoleNode); ok {
+							visit(ctx, right, hole)
+						}
+					}
 				}
 			}
 		}
@@ -298,9 +314,17 @@ func (a *AST) visitAliases(visit func(ctx *visitContext, parent interface{}, nod
 					}
 				}
 			case *RightExpressionNode:
-				if alias, ok := node.i.(AliasNode); ok {
-					ctx.key = st.Ident
-					visit(ctx, node, alias)
+				ctx.key = st.Ident
+				switch right := node.i.(type) {
+				case AliasNode:
+					visit(ctx, node, right)
+				case ListNode:
+					for i, el := range right.arr {
+						ctx.listIndex = i
+						if alias, ok := el.(AliasNode); ok {
+							visit(ctx, right, alias)
+						}
+					}
 				}
 			}
 		}

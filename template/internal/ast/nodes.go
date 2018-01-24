@@ -20,8 +20,23 @@ func (n *RightExpressionNode) Result() interface{} {
 	switch v := n.i.(type) {
 	case InterfaceNode:
 		return v.i
-	default:
+	case RefNode, AliasNode, HoleNode:
 		return nil
+	case ListNode:
+		var arr []interface{}
+		for _, e := range v.arr {
+			switch ev := e.(type) {
+			case InterfaceNode:
+				arr = append(arr, ev.i)
+			case RefNode, AliasNode, HoleNode:
+				return nil
+			default:
+				arr = append(arr, ev)
+			}
+		}
+		return arr
+	default:
+		return n.i
 	}
 }
 
