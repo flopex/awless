@@ -192,8 +192,8 @@ create loadbalancer name=mylb subnets=subnet-1, subnet-2
 			"mysubnet5.hole":  "mysubnet-5",
 			"version":         10,
 			"instance.name":   "myinstance",
-			"hole":            ast.NewAliasValue("sub"),
-			"private.subnets": []interface{}{"sub-1234", "sub-2345"},
+			"hole":            ast.NewAliasNode("sub"),
+			"private.subnets": ast.NewListNode([]interface{}{"sub-1234", "sub-2345"}),
 		})
 
 		inTpl := template.MustParse(tcase.tpl)
@@ -212,7 +212,7 @@ create loadbalancer name=mylb subnets=subnet-1, subnet-2
 		}
 
 		if got, want := cenv.Get(env.RESOLVED_VARS), tcase.expResolvedVariables; !reflect.DeepEqual(got, want) {
-			t.Fatalf("%d: got %#v, want %#v", i+1, got, want)
+			t.Fatalf("%d: got\n%#v\nwant\n%#v\n", i+1, got, want)
 		}
 	}
 }

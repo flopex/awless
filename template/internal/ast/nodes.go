@@ -35,6 +35,17 @@ func (n *RightExpressionNode) Result() interface{} {
 			}
 		}
 		return arr
+	case ConcatenationNode:
+		var arr []string
+		for _, e := range v.arr {
+			switch ee := e.(type) {
+			case InterfaceNode:
+				arr = append(arr, fmt.Sprint(ee.i))
+			default:
+				arr = append(arr, fmt.Sprint(ee))
+			}
+		}
+		return strings.Join(arr, "")
 	default:
 		return n.i
 	}
@@ -144,6 +155,50 @@ func (n ListNode) String() string {
 }
 
 func (n ListNode) clone() Node {
+	return n
+}
+
+type ConcatenationNode struct {
+	arr []interface{}
+}
+
+func NewConcatenationNode(arr []interface{}) ConcatenationNode {
+	return ConcatenationNode{arr: arr}
+}
+
+func (n ConcatenationNode) String() string {
+	var hasUnresolvedHole bool
+	var elems []string
+	for _, val := range n.arr {
+		if _, has := val.(HoleNode); has {
+			hasUnresolvedHole = true
+			break
+		}
+	}
+	for _, val := range n.arr {
+		switch node := val.(type) {
+		case InterfaceNode:
+			if str, isStr := node.i.(string); isStr {
+				if hasUnresolvedHole {
+					elems = append(elems, Quote(str))
+				} else {
+					elems = append(elems, str)
+				}
+			} else {
+				panic(fmt.Sprintf("concatenation node expects only strings and holes: got %T", node.i))
+			}
+		default:
+			elems = append(elems, fmt.Sprint(val))
+		}
+	}
+	if hasUnresolvedHole {
+		return strings.Join(elems, "+")
+	} else {
+		return quoteStringIfNeeded(strings.Join(elems, ""))
+	}
+}
+
+func (n ConcatenationNode) clone() Node {
 	return n
 }
 

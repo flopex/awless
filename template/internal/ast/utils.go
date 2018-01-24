@@ -90,7 +90,7 @@ func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interfac
 				done = true
 				val = v
 				switch vv := v.(type) {
-				case AliasNode, RefNode, HoleNode:
+				case AliasNode, RefNode, HoleNode, ConcatenationNode:
 					processed[k] = fmt.Sprint(v)
 				case ListNode:
 					var arr []interface{}
@@ -111,6 +111,8 @@ func ProcessHoles(tree *AST, fillers map[string]interface{}) map[string]interfac
 
 		if done {
 			switch p := parent.(type) {
+			case ConcatenationNode:
+				p.arr[ctx.concatItemIndex] = val
 			case ListNode:
 				p.arr[ctx.listIndex] = val
 			case *CommandNode:
@@ -138,6 +140,8 @@ func ProcessAliases(tree *AST, aliasFunc func(action, entity string, key string)
 			switch p := parent.(type) {
 			case ListNode:
 				p.arr[ctx.listIndex] = resolv
+			case ConcatenationNode:
+				p.arr[ctx.concatItemIndex] = resolv
 			case *CommandNode:
 				p.ParamNodes[ctx.key] = resolv
 			case *RightExpressionNode:
@@ -151,6 +155,7 @@ type visitContext struct {
 	action, entity, key string
 	declaredVariables   []string
 	listIndex           int
+	concatItemIndex     int
 }
 
 func (a *AST) visitRefs(visit func(*visitContext, interface{}, RefNode), contexts ...*visitContext) {
@@ -234,6 +239,13 @@ func (a *AST) visitHoles(visit func(*visitContext, interface{}, HoleNode)) {
 							visit(ctx, p, hole)
 						}
 					}
+				case ConcatenationNode:
+					for i, el := range p.arr {
+						ctx.concatItemIndex = i
+						if hole, ok := el.(HoleNode); ok {
+							visit(ctx, p, hole)
+						}
+					}
 				}
 			}
 		case *DeclarationNode:
@@ -253,6 +265,13 @@ func (a *AST) visitHoles(visit func(*visitContext, interface{}, HoleNode)) {
 								visit(ctx, p, hole)
 							}
 						}
+					case ConcatenationNode:
+						for i, el := range p.arr {
+							ctx.concatItemIndex = i
+							if hole, ok := el.(HoleNode); ok {
+								visit(ctx, p, hole)
+							}
+						}
 					}
 				}
 			case *RightExpressionNode:
@@ -263,6 +282,13 @@ func (a *AST) visitHoles(visit func(*visitContext, interface{}, HoleNode)) {
 				case ListNode:
 					for i, el := range right.arr {
 						ctx.listIndex = i
+						if hole, ok := el.(HoleNode); ok {
+							visit(ctx, right, hole)
+						}
+					}
+				case ConcatenationNode:
+					for i, el := range right.arr {
+						ctx.concatItemIndex = i
 						if hole, ok := el.(HoleNode); ok {
 							visit(ctx, right, hole)
 						}
@@ -291,6 +317,13 @@ func (a *AST) visitAliases(visit func(ctx *visitContext, parent interface{}, nod
 							visit(ctx, p, alias)
 						}
 					}
+				case ConcatenationNode:
+					for i, el := range p.arr {
+						ctx.concatItemIndex = i
+						if alias, ok := el.(AliasNode); ok {
+							visit(ctx, p, alias)
+						}
+					}
 				}
 			}
 		case *DeclarationNode:
@@ -311,6 +344,13 @@ func (a *AST) visitAliases(visit func(ctx *visitContext, parent interface{}, nod
 								visit(ctx, p, alias)
 							}
 						}
+					case ConcatenationNode:
+						for i, el := range p.arr {
+							ctx.concatItemIndex = i
+							if alias, ok := el.(AliasNode); ok {
+								visit(ctx, p, alias)
+							}
+						}
 					}
 				}
 			case *RightExpressionNode:
@@ -321,6 +361,13 @@ func (a *AST) visitAliases(visit func(ctx *visitContext, parent interface{}, nod
 				case ListNode:
 					for i, el := range right.arr {
 						ctx.listIndex = i
+						if alias, ok := el.(AliasNode); ok {
+							visit(ctx, right, alias)
+						}
+					}
+				case ConcatenationNode:
+					for i, el := range right.arr {
+						ctx.concatItemIndex = i
 						if alias, ok := el.(AliasNode); ok {
 							visit(ctx, right, alias)
 						}

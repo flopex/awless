@@ -86,7 +86,7 @@ func (b *statementBuilder) addParamValue(val CompositeValue, node interface{}) *
 	b.currentValue = val
 	b.currentNode = node
 	if b.concatenationBuilder != nil {
-		b.concatenationBuilder.add(b.currentValue)
+		b.concatenationBuilder.add(b.currentValue, node)
 		b.currentValue = nil
 		b.currentNode = nil
 	} else if b.listBuilder != nil {
@@ -187,9 +187,9 @@ func (a *AST) addFirstValueInConcatenation() {
 
 func (a *AST) lastValueInConcatenation() {
 	if a.stmtBuilder.concatenationBuilder != nil {
-		concat := a.stmtBuilder.concatenationBuilder.build()
+		concat, node := a.stmtBuilder.concatenationBuilder.build()
 		a.stmtBuilder.concatenationBuilder = nil
-		a.stmtBuilder.addParamValue(concat, nil)
+		a.stmtBuilder.addParamValue(concat, node)
 	}
 }
 
@@ -227,14 +227,18 @@ func (c *listValueBuilder) build() (CompositeValue, ListNode) {
 }
 
 type concatenationValueBuilder struct {
-	vals []CompositeValue
+	vals     []CompositeValue
+	elements []interface{}
 }
 
-func (c *concatenationValueBuilder) add(v CompositeValue) *concatenationValueBuilder {
+func (c *concatenationValueBuilder) add(v CompositeValue, node interface{}) *concatenationValueBuilder {
 	c.vals = append(c.vals, v)
+	c.elements = append(c.elements, node)
 	return c
 }
 
-func (c *concatenationValueBuilder) build() CompositeValue {
-	return &concatenationValue{c.vals}
+func (c *concatenationValueBuilder) build() (CompositeValue, ConcatenationNode) {
+	concat := &concatenationValue{c.vals}
+	node := ConcatenationNode{arr: c.elements}
+	return concat, node
 }
