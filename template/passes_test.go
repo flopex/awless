@@ -107,6 +107,54 @@ func TestCheckInvalidReferencesDeclarationPass(t *testing.T) {
 	}
 }
 
+func TestResolveParamsAndExtractRefsPass(t *testing.T) {
+	env := NewEnv().Build()
+	tcases := []struct {
+		tpl                string
+		expStatementParams []map[string]interface{}
+		expStatementRefs   []map[string]interface{}
+	}{
+		{
+			tpl: "sub = create subnet name=my-sub cidr=10.0.0.0/16\ncreate instance subnet=$sub count=10 type=t2.nano",
+			expStatementParams: []map[string]interface{}{
+				{"name": "my-sub", "cidr": "10.0.0.0/16"},
+				{"count": 10, "type": "t2.nano"},
+			},
+			expStatementRefs: []map[string]interface{}{
+				{},
+				{"subnet": ast.NewRefNode("sub")},
+			},
+		},
+		{
+			tpl: "sub = create subnet list=[id-1234,24,id-2345]\ncreate instance list-with-ref=[id-3456,42.0,$sub]",
+			expStatementParams: []map[string]interface{}{
+				{"list": []interface{}{"id-1234", 24, "id-2345"}},
+				{},
+			},
+			expStatementRefs: []map[string]interface{}{
+				{},
+				{"list-with-ref": ast.NewListNode([]interface{}{"id-3456", 42.0, ast.NewRefNode("sub")})},
+			},
+		},
+		//list
+	}
+
+	for i, tcase := range tcases {
+		tpl, _, err := resolveParamsAndExtractRefsPass(MustParse(tcase.tpl), env)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for cmdIndex, cmd := range tpl.CommandNodesIterator() {
+			if got, want := cmd.ParamNodes, tcase.expStatementParams[cmdIndex]; !reflect.DeepEqual(got, want) {
+				t.Fatalf("%d: got %#v, want %#v", i+1, got, want)
+			}
+			if got, want := cmd.Refs, tcase.expStatementRefs[cmdIndex]; !reflect.DeepEqual(got, want) {
+				t.Fatalf("%d: got %#v, want %#v", i+1, got, want)
+			}
+		}
+	}
+}
+
 type mockCommandWithResult struct{ id string }
 
 func (c *mockCommandWithResult) ParamsSpec() params.Spec { return nil }

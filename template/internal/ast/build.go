@@ -44,6 +44,7 @@ func (b *statementBuilder) build() *Statement {
 			Entity:     b.entity,
 			Params:     cmdParams,
 			ParamNodes: b.newparams,
+			Refs:       make(map[string]interface{}),
 		}
 	}
 	if b.declarationIdentifier != "" {

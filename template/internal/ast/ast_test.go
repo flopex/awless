@@ -35,6 +35,7 @@ func TestCloneAST(t *testing.T) {
 			Action: "create", Entity: "vpc",
 			Params:     map[string]CompositeValue{"count": &interfaceValue{val: 1}, "myname": &referenceValue{ref: "name"}},
 			ParamNodes: map[string]interface{}{"count": InterfaceNode{i: 1}, "myname": RefNode{key: "name"}},
+			Refs:       map[string]interface{}{"here": "there"},
 		}}}, &Statement{Node: &DeclarationNode{
 		Ident: "myothervar",
 		Expr: &CommandNode{
@@ -42,10 +43,12 @@ func TestCloneAST(t *testing.T) {
 			Action:  "create", Entity: "subnet",
 			Params:     map[string]CompositeValue{"vpc": NewHoleValue("myvar")},
 			ParamNodes: map[string]interface{}{"vpc": HoleNode{key: "myvar"}},
+			Refs:       map[string]interface{}{},
 		}}}, &Statement{Node: &CommandNode{
 		Action: "create", Entity: "instance",
 		Params:     map[string]CompositeValue{"subnet": NewHoleValue("myothervar")},
 		ParamNodes: map[string]interface{}{"subnet": HoleNode{key: "myothervar"}},
+		Refs:       map[string]interface{}{"donald": "duck"},
 	}},
 	)
 

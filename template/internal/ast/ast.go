@@ -88,6 +88,25 @@ func (c *CommandNode) String() string {
 	var all []string
 
 	for k, v := range c.ParamNodes {
+		switch vv := v.(type) {
+		case string:
+			all = append(all, fmt.Sprintf("%s=%v", k, quoteStringIfNeeded(vv)))
+		case []interface{}:
+			var a []string
+			for _, e := range vv {
+				switch ee := e.(type) {
+				case string:
+					a = append(a, quoteStringIfNeeded(ee))
+				default:
+					a = append(a, fmt.Sprint(ee))
+				}
+			}
+			all = append(all, fmt.Sprintf("%s=[%s]", k, strings.Join(a, ",")))
+		default:
+			all = append(all, fmt.Sprintf("%s=%v", k, v))
+		}
+	}
+	for k, v := range c.Refs {
 		all = append(all, fmt.Sprintf("%s=%v", k, v))
 	}
 
@@ -110,6 +129,7 @@ func (c *CommandNode) clone() Node {
 		Action:  c.Action, Entity: c.Entity,
 		Params:     make(map[string]CompositeValue),
 		ParamNodes: make(map[string]interface{}),
+		Refs:       make(map[string]interface{}),
 	}
 
 	for k, v := range c.Params {
@@ -117,6 +137,9 @@ func (c *CommandNode) clone() Node {
 	}
 	for k, v := range c.ParamNodes {
 		cmd.ParamNodes[k] = v
+	}
+	for k, v := range c.Refs {
+		cmd.Refs[k] = v
 	}
 	return cmd
 }

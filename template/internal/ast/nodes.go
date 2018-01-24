@@ -36,16 +36,7 @@ func (n *RightExpressionNode) Result() interface{} {
 		}
 		return arr
 	case ConcatenationNode:
-		var arr []string
-		for _, e := range v.arr {
-			switch ee := e.(type) {
-			case InterfaceNode:
-				arr = append(arr, fmt.Sprint(ee.i))
-			default:
-				arr = append(arr, fmt.Sprint(ee))
-			}
-		}
-		return strings.Join(arr, "")
+		return v.Concat()
 	default:
 		return n.i
 	}
@@ -83,6 +74,7 @@ type CommandNode struct {
 	Action, Entity string
 	Params         map[string]CompositeValue
 	ParamNodes     map[string]interface{}
+	Refs           map[string]interface{}
 }
 
 type RefNode struct {
@@ -154,6 +146,10 @@ func (n ListNode) String() string {
 	return "[" + strings.Join(a, ",") + "]"
 }
 
+func (n ListNode) Elems() []interface{} {
+	return n.arr
+}
+
 func (n ListNode) clone() Node {
 	return n
 }
@@ -164,6 +160,19 @@ type ConcatenationNode struct {
 
 func NewConcatenationNode(arr []interface{}) ConcatenationNode {
 	return ConcatenationNode{arr: arr}
+}
+
+func (n ConcatenationNode) Concat() string {
+	var arr []string
+	for _, e := range n.arr {
+		switch ee := e.(type) {
+		case InterfaceNode:
+			arr = append(arr, fmt.Sprint(ee.i))
+		default:
+			arr = append(arr, fmt.Sprint(ee))
+		}
+	}
+	return strings.Join(arr, "")
 }
 
 func (n ConcatenationNode) String() string {
@@ -204,6 +213,10 @@ func (n ConcatenationNode) clone() Node {
 
 type InterfaceNode struct {
 	i interface{}
+}
+
+func (n InterfaceNode) Value() interface{} {
+	return n.i
 }
 
 func (n InterfaceNode) String() string {

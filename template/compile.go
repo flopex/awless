@@ -23,6 +23,7 @@ var (
 		removeOptionalHolesPass,
 		resolveAliasPass,
 		inlineVariableValuePass,
+		resolveParamsAndExtractRefsPass,
 	}
 
 	NewRunnerCompileMode = []compileFunc{
@@ -37,6 +38,7 @@ var (
 		inlineVariableValuePass,
 		failOnUnresolvedHolesPass,
 		failOnUnresolvedAliasPass,
+		resolveParamsAndExtractRefsPass,
 		convertParamsPass,
 		validateCommandsPass,
 	}
@@ -154,6 +156,47 @@ func processAndValidateParamsPass(tpl *Template, cenv env.Compiling) (*Template,
 
 	err := tpl.visitCommandNodesE(normalizeMissingRequiredParamsAsHoleAndValidate)
 	return tpl, cenv, err
+}
+
+func resolveParamsAndExtractRefsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
+	for _, node := range tpl.CommandNodesIterator() {
+		for k, param := range node.ParamNodes {
+			switch paramNode := param.(type) {
+			case ast.InterfaceNode:
+				node.ParamNodes[k] = paramNode.Value()
+			case ast.RefNode:
+				node.Refs[k] = paramNode
+				delete(node.ParamNodes, k)
+			case ast.ListNode:
+				var hasRef bool
+				var arr []interface{}
+				for _, elem := range paramNode.Elems() {
+					switch e := elem.(type) {
+					case ast.InterfaceNode:
+						arr = append(arr, e.Value())
+					case ast.RefNode:
+						hasRef = true
+						arr = append(arr, e)
+					case ast.HoleNode, ast.ConcatenationNode, ast.AliasNode, ast.ListNode:
+						return tpl, cenv, fmt.Errorf("%s: unresolved value in list of type %T", k, e)
+					default:
+						arr = append(arr, e)
+					}
+				}
+				if hasRef {
+					node.Refs[k] = ast.NewListNode(arr)
+					delete(node.ParamNodes, k)
+				} else {
+					node.ParamNodes[k] = arr
+				}
+			case ast.ConcatenationNode:
+				node.ParamNodes[k] = paramNode.Concat()
+			case ast.HoleNode, ast.AliasNode:
+				return tpl, cenv, fmt.Errorf("%s: unresolved value of type %T", k, paramNode)
+			}
+		}
+	}
+	return tpl, cenv, nil
 }
 
 func convertParamsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
