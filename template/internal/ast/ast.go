@@ -210,7 +210,7 @@ func (c *CommandNode) ProcessRefs(refs map[string]interface{}) {
 		}
 	}
 
-	for paramKey, param := range c.ParamNodes {
+	for paramKey, param := range c.Refs {
 		if ref, ok := param.(RefNode); ok {
 			for k, v := range refs {
 				if k == ref.key {
@@ -232,7 +232,7 @@ func (c *CommandNode) ProcessRefs(refs map[string]interface{}) {
 				}
 				new = append(new, newElem)
 			}
-			list.arr = new
+			c.ParamNodes[paramKey] = new
 		}
 	}
 }

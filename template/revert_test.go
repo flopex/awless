@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/wallix/awless/aws/spec"
 	"github.com/wallix/awless/template/internal/ast"
 )
 
@@ -39,6 +40,9 @@ func TestRevertOneliner(t *testing.T) {
 }
 
 func TestRevertTemplate(t *testing.T) {
+	env := NewEnv().WithLookupCommandFunc(func(tokens ...string) interface{} {
+		return awsspec.MockAWSSessionFactory.Build(strings.Join(tokens, ""))()
+	}).Build()
 	t.Run("Simple template", func(t *testing.T) {
 		tpl := MustParse("create instance type=t2.micro")
 		for _, cmd := range tpl.CommandNodesIterator() {
@@ -77,8 +81,11 @@ func TestRevertTemplate(t *testing.T) {
 	})
 
 	t.Run("More advanced template", func(t *testing.T) {
-		tpl := MustParse("attach policy arn=stuff user=mrT\ncreate vpc\ncreate subnet\nstart instance ids=i-54g3hj\ncreate tag key=Key resource=myinst value=Value\ncreate instance")
-		for i, cmd := range tpl.CommandNodesIterator() {
+		compiled, _, err := Compile(MustParse("attach policy arn=stuff user=mrT\ncreate vpc cidr=10.0.0.0/16\ncreate subnet vpc=vpc-1234 cidr=10.0.0.0/24\nstart instance ids=i-54g3hj\ncreate tag key=Key resource=myinst value=Value\ncreate instance count=1 image=ami-1234 name=myinstance subnet=sub-1234 type=t2.nano"), env, NewRunnerCompileMode)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, cmd := range compiled.CommandNodesIterator() {
 			if i == 1 {
 				cmd.CmdResult = "vpc-12345"
 			}
@@ -93,14 +100,14 @@ func TestRevertTemplate(t *testing.T) {
 			}
 		}
 
-		reverted, err := tpl.Revert()
+		reverted, err := compiled.Revert()
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		exp := "delete tag key=Key resource=myinst value=Value\ncheck instance id=i-54g3hj state=running timeout=180\nstop instance ids=i-54g3hj\ndelete subnet id=sub-12345\ndelete vpc id=vpc-12345\ndetach policy arn=stuff user=mrT"
 		if got, want := reverted.String(), exp; got != want {
-			t.Fatalf("got: %s\nwant: %s\n", got, want)
+			t.Fatalf("got: \n%s\n\nwant:\n%s\n", got, want)
 		}
 	})
 

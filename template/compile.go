@@ -201,14 +201,13 @@ func resolveParamsAndExtractRefsPass(tpl *Template, cenv env.Compiling) (*Templa
 
 func convertParamsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
 	convert := func(node *ast.CommandNode) error {
-		refsParams := make(map[string]struct{})
 		for _, reducer := range node.ParamsSpec().Reducers() {
-			params := node.ToDriverParams()
-			for k, v := range node.Params {
-				if ref, isRef := v.(ast.WithRefs); isRef && len(ref.GetRefs()) > 0 {
-					params[k] = v
-					refsParams[k] = struct{}{}
-				}
+			params := make(map[string]interface{})
+			for k, v := range node.ParamNodes {
+				params[k] = v
+			}
+			for k, v := range node.Refs {
+				params[k] = v
 			}
 
 			out, err := reducer.Reduce(params)
@@ -216,13 +215,15 @@ func convertParamsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compil
 				return cmdErr(node, err)
 			}
 			for _, k := range reducer.Keys() {
-				delete(node.Params, k)
+				delete(node.ParamNodes, k)
+				delete(node.Refs, k)
 			}
 			for k, v := range out {
-				if ref, isRef := v.(ast.CompositeValue); isRef {
-					node.Params[k] = ref
-				} else {
-					node.Params[k] = ast.NewInterfaceValue(v)
+				switch v.(type) {
+				case ast.ListNode, ast.RefNode, ast.ConcatenationNode:
+					node.Refs[k] = v
+				default:
+					node.ParamNodes[k] = v
 				}
 			}
 		}
