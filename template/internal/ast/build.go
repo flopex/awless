@@ -36,6 +36,9 @@ func (b *statementBuilder) build() *Statement {
 		for _, param := range b.params {
 			cmdParams[param.key] = param.value
 		}
+		if b.newparams == nil {
+			b.newparams = make(map[string]interface{})
+		}
 		expr = &CommandNode{
 			Action:     b.action,
 			Entity:     b.entity,
