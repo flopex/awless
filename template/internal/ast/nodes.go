@@ -126,6 +126,10 @@ func (n HoleNode) IsOptional() bool {
 	return n.optional
 }
 
+func (n HoleNode) Hole() string {
+	return n.key
+}
+
 func (n HoleNode) String() string {
 	return "{" + n.key + "}"
 }

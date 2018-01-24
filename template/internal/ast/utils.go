@@ -73,6 +73,23 @@ func RemoveOptionalHoles(tree *AST) {
 	})
 }
 
+func CollectUniqueHoles(tree *AST) map[HoleNode][]string {
+	uniqueHoles := make(map[HoleNode][]string)
+	tree.visitHoles(func(ctx *visitContext, parent interface{}, node HoleNode) {
+		if _, ok := uniqueHoles[node]; !ok {
+			uniqueHoles[node] = []string{}
+		}
+
+		if ctx.action != "" && ctx.entity != "" && ctx.key != "" {
+			paramPath := fmt.Sprintf("%s.%s.%s", ctx.action, ctx.entity, ctx.key)
+			if !contains(uniqueHoles[node], paramPath) {
+				uniqueHoles[node] = append(uniqueHoles[node], paramPath)
+			}
+		}
+	})
+	return uniqueHoles
+}
+
 func CollectHoles(tree *AST) (holes []HoleNode) {
 	tree.visitHoles(func(ctx *visitContext, parent interface{}, node HoleNode) {
 		holes = append(holes, node)

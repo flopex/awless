@@ -128,7 +128,6 @@ func processAndValidateParamsPass(tpl *Template, cenv env.Compiling) (*Template,
 		missingRequired := rule.Missing(node.Keys())
 		for _, e := range missingRequired {
 			normalized := fmt.Sprintf("%s.%s", node.Entity, e)
-			node.Params[e] = ast.NewHoleValue(normalized)
 			node.ParamNodes[e] = ast.NewHoleNode(normalized)
 		}
 		if err := params.Run(rule, node.Keys()); err != nil {
@@ -148,7 +147,6 @@ func processAndValidateParamsPass(tpl *Template, cenv env.Compiling) (*Template,
 
 		for _, e := range suggested {
 			key := fmt.Sprintf("%s.%s", node.Entity, e)
-			node.Params[e] = ast.NewOptionalHoleValue(key)
 			node.ParamNodes[e] = ast.NewOptionalHoleNode(key)
 		}
 		return nil
@@ -255,29 +253,10 @@ func inlineVariableValuePass(tpl *Template, cenv env.Compiling) (*Template, env.
 	for i, st := range tpl.Statements {
 		decl, isDecl := st.Node.(*ast.DeclarationNode)
 		if isDecl {
-			value, isValue := decl.Expr.(*ast.ValueNode)
-			if isValue {
-				if val := value.Value.Value(); val != nil {
-					cenv.Push(env.RESOLVED_VARS, map[string]interface{}{decl.Ident: val})
-				}
-				for j := i + 1; j < len(tpl.Statements); j++ {
-					expr := extractExpressionNode(tpl.Statements[j])
-					if expr != nil {
-						if withRef, ok := expr.(ast.WithRefs); ok {
-							withRef.ReplaceRef(decl.Ident, value.Value)
-						}
-					}
-				}
-				if value.IsResolved() {
-					continue
-				}
-			}
-
 			if right, isRightExpr := decl.Expr.(*ast.RightExpressionNode); isRightExpr {
 				if res := right.Result(); res != nil {
 					cenv.Push(env.RESOLVED_VARS, map[string]interface{}{decl.Ident: res})
 				}
-
 				ast.ProcessRefs(
 					&ast.AST{Statements: tpl.Statements[i+1:]},
 					map[string]interface{}{decl.Ident: right.Node()},
@@ -299,31 +278,20 @@ func resolveHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.Compili
 }
 
 func resolveMissingHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
-	uniqueHoles := make(map[string]*ast.Hole)
-	tpl.visitHoles(func(h ast.WithHoles) {
-		for k, v := range h.GetHoles() {
-			if _, ok := uniqueHoles[k]; !ok {
-				uniqueHoles[k] = v
-			}
-			for _, vv := range v.ParamPaths {
-				if !contains(uniqueHoles[k].ParamPaths, vv) {
-					uniqueHoles[k].ParamPaths = append(uniqueHoles[k].ParamPaths, vv)
-				}
-			}
-		}
-	})
-	var sortedHoles []*ast.Hole
-	for _, v := range uniqueHoles {
-		sortedHoles = append(sortedHoles, v)
+	uniqueHoles := ast.CollectUniqueHoles(tpl.AST)
+
+	var sortedHoles []ast.HoleNode
+	for hole := range uniqueHoles {
+		sortedHoles = append(sortedHoles, hole)
 	}
 	sort.Slice(sortedHoles, func(i, j int) bool {
 		a := sortedHoles[i]
 		b := sortedHoles[j]
 
-		if a.IsOptional == b.IsOptional {
-			return a.Name < b.Name
+		if a.IsOptional() == b.IsOptional() {
+			return a.Hole() < b.Hole()
 		} else {
-			if a.IsOptional {
+			if a.IsOptional() {
 				return false
 			}
 			return true
@@ -331,10 +299,10 @@ func resolveMissingHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.
 	})
 
 	for _, hole := range sortedHoles {
-		k := hole.Name
+		k := hole.Hole()
 		if cenv.MissingHolesFunc() != nil {
-			actual := cenv.MissingHolesFunc()(k, uniqueHoles[k].ParamPaths, uniqueHoles[k].IsOptional)
-			if actual == "" && uniqueHoles[k].IsOptional {
+			actual := cenv.MissingHolesFunc()(k, uniqueHoles[hole], hole.IsOptional())
+			if actual == "" && hole.IsOptional() {
 				continue
 			}
 			params, err := ParseParams(fmt.Sprintf("%s=%s", k, actual))
