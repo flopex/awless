@@ -47,30 +47,6 @@ func (b *statementBuilder) addParamKey(key string) *statementBuilder {
 	return b
 }
 
-func (b *statementBuilder) addRef(s string) *statementBuilder {
-	if b.newparams == nil {
-		b.newparams = make(map[string]interface{})
-	}
-	b.newparams[b.currentKey] = RefNode{key: s}
-	return b
-}
-
-func (b *statementBuilder) addAlias(s string) *statementBuilder {
-	if b.newparams == nil {
-		b.newparams = make(map[string]interface{})
-	}
-	b.newparams[b.currentKey] = AliasNode{key: s}
-	return b
-}
-
-func (b *statementBuilder) addHole(s string) *statementBuilder {
-	if b.newparams == nil {
-		b.newparams = make(map[string]interface{})
-	}
-	b.newparams[b.currentKey] = HoleNode{key: s}
-	return b
-}
-
 func (b *statementBuilder) addParamValue(node interface{}) *statementBuilder {
 	if b.newparams == nil {
 		b.newparams = make(map[string]interface{})

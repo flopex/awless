@@ -53,17 +53,6 @@ type ExpressionNode interface {
 	Err() error
 }
 
-type Hole struct {
-	Name       string
-	ParamPaths []string
-	IsOptional bool
-}
-
-type WithHoles interface {
-	ProcessHoles(fills map[string]interface{}) (processed map[string]interface{})
-	GetHoles() map[string]*Hole
-}
-
 type Command interface {
 	ParamsSpec() params.Spec
 	Run(env.Running, map[string]interface{}) (interface{}, error)
@@ -138,40 +127,6 @@ func (c *CommandNode) clone() Node {
 	return cmd
 }
 
-func (c *CommandNode) ProcessHoles(fills map[string]interface{}) map[string]interface{} {
-	processed := make(map[string]interface{})
-
-	for paramKey, param := range c.ParamNodes {
-		if hole, ok := param.(HoleNode); ok {
-			for k, v := range fills {
-				if k == hole.key {
-					c.ParamNodes[paramKey] = v
-					processed[k] = v
-				}
-			}
-		}
-
-		if list, ok := param.(ListNode); ok {
-			var new []interface{}
-			for _, e := range list.arr {
-				newElem := e
-				if hole, isHole := e.(HoleNode); isHole {
-					for k, v := range fills {
-						if k == hole.key {
-							newElem = v
-							processed[k] = v
-						}
-					}
-				}
-				new = append(new, newElem)
-			}
-			list.arr = new
-		}
-	}
-
-	return processed
-}
-
 func (c *CommandNode) ProcessRefs(refs map[string]interface{}) {
 	for paramKey, param := range c.Refs {
 		if ref, ok := param.(RefNode); ok {
@@ -198,10 +153,6 @@ func (c *CommandNode) ProcessRefs(refs map[string]interface{}) {
 			c.ParamNodes[paramKey] = new
 		}
 	}
-}
-
-func (c *CommandNode) IsRef(key string) bool {
-	return false
 }
 
 func (c *CommandNode) ToDriverParams() map[string]interface{} {
@@ -275,25 +226,6 @@ func (n *DeclarationNode) clone() Node {
 
 func (n *DeclarationNode) String() string {
 	return fmt.Sprintf("%s = %s", n.Ident, n.Expr)
-}
-
-func printParamValue(i interface{}) string {
-	switch ii := i.(type) {
-	case nil:
-		return ""
-	case []string:
-		return "[" + strings.Join(ii, ",") + "]"
-	case []interface{}:
-		var strs []string
-		for _, val := range ii {
-			strs = append(strs, fmt.Sprint(val))
-		}
-		return "[" + strings.Join(strs, ",") + "]"
-	case string:
-		return quoteStringIfNeeded(ii)
-	default:
-		return fmt.Sprintf("%v", i)
-	}
 }
 
 func (a *AST) Clone() *AST {

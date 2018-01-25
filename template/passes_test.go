@@ -443,9 +443,6 @@ type mockCommand struct{ id string }
 func (c *mockCommand) Run(env.Running, map[string]interface{}) (interface{}, error) { return nil, nil }
 func (c *mockCommand) ParamsSpec() params.Spec                                      { return params.NewSpec(nil) }
 
-type parameters map[string]interface{}
-type holesKeys map[string][]string
-
 func assertRightExpressionValue(t *testing.T, tpl *Template, exp ...interface{}) {
 	t.Helper()
 	for i, decl := range tpl.expressionNodesIterator() {
@@ -458,10 +455,10 @@ func assertRightExpressionValue(t *testing.T, tpl *Template, exp ...interface{})
 	}
 }
 
-func assertCmdParams(t *testing.T, tpl *Template, exp ...parameters) {
+func assertCmdParams(t *testing.T, tpl *Template, exp ...map[string]interface{}) {
 	t.Helper()
 	for i, cmd := range tpl.CommandNodesIterator() {
-		if got, want := parameters(cmd.ToDriverParams()), exp[i]; !reflect.DeepEqual(got, want) {
+		if got, want := cmd.ToDriverParams(), exp[i]; !reflect.DeepEqual(got, want) {
 			t.Fatalf("params: cmd %d: \ngot\n%v\n\nwant\n%v\n", i+1, got, want)
 		}
 	}

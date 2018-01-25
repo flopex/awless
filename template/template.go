@@ -156,14 +156,6 @@ func (t *Template) UniqueDefinitions(apis map[string]string) (res []string) {
 	return
 }
 
-func (s *Template) visitHoles(fn func(n ast.WithHoles)) {
-	for _, n := range s.expressionNodesIterator() {
-		if h, ok := n.(ast.WithHoles); ok {
-			fn(h)
-		}
-	}
-}
-
 func (s *Template) visitCommandNodes(fn func(n *ast.CommandNode)) {
 	for _, cmd := range s.CommandNodesIterator() {
 		fn(cmd)
