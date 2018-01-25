@@ -26,10 +26,6 @@ import (
 	"github.com/wallix/awless/template/params"
 )
 
-var (
-	_ WithHoles = (*ValueNode)(nil)
-)
-
 type Node interface {
 	clone() Node
 	String() string
@@ -250,71 +246,6 @@ func (c *CommandNode) ToFillerParams() map[string]interface{} {
 		}
 	}
 	return params
-}
-
-type ValueNode struct {
-	Value CompositeValue
-}
-
-func (n *ValueNode) clone() Node {
-	return &ValueNode{
-		Value: n.Value.Clone(),
-	}
-}
-
-func (n *ValueNode) String() string {
-	return n.Value.String()
-}
-
-func (n *ValueNode) Result() interface{} { return n.Value }
-func (n *ValueNode) Err() error          { return nil }
-
-func (n *ValueNode) IsResolved() bool {
-	if withHoles, ok := n.Value.(WithHoles); ok {
-		return len(withHoles.GetHoles()) == 0
-	}
-	return true
-}
-
-func (n *ValueNode) ProcessHoles(fills map[string]interface{}) map[string]interface{} {
-	if withHoles, ok := n.Value.(WithHoles); ok {
-		return withHoles.ProcessHoles(fills)
-	}
-	return make(map[string]interface{})
-}
-
-func (n *ValueNode) ProcessRefs(refs map[string]interface{}) {
-	if withRef, ok := n.Value.(WithRefs); ok {
-		withRef.ProcessRefs(refs)
-	}
-}
-
-func (n *ValueNode) GetRefs() (refs []string) {
-	if withRef, ok := n.Value.(WithRefs); ok {
-		refs = append(refs, withRef.GetRefs()...)
-	}
-	return
-}
-
-func (n *ValueNode) ReplaceRef(key string, value CompositeValue) {
-	if withRef, ok := n.Value.(WithRefs); ok {
-		if withRef.IsRef(key) {
-			n.Value = value
-		} else {
-			withRef.ReplaceRef(key, value)
-		}
-	}
-}
-
-func (n *ValueNode) IsRef(key string) bool {
-	return false
-}
-
-func (n *ValueNode) GetHoles() map[string]*Hole {
-	if withHoles, ok := n.Value.(WithHoles); ok {
-		return withHoles.GetHoles()
-	}
-	return make(map[string]*Hole)
 }
 
 func (s *Statement) Clone() *Statement {

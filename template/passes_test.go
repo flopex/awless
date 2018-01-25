@@ -246,7 +246,7 @@ func TestResolveMissingHolesPass(t *testing.T) {
 		t.Fatalf("got %d, want %d", got, want)
 	}
 
-	assertVariableValues(t, tpl,
+	assertRightExpressionValue(t, tpl,
 		"1.2.3.4",
 	)
 	assertCmdParams(t, tpl,
@@ -446,12 +446,12 @@ func (c *mockCommand) ParamsSpec() params.Spec                                  
 type parameters map[string]interface{}
 type holesKeys map[string][]string
 
-func assertVariableValues(t *testing.T, tpl *Template, exp ...interface{}) {
+func assertRightExpressionValue(t *testing.T, tpl *Template, exp ...interface{}) {
 	t.Helper()
 	for i, decl := range tpl.expressionNodesIterator() {
-		if vn, ok := decl.(*ast.ValueNode); ok {
-			if got, want := vn.Value.Value(), exp[i]; !reflect.DeepEqual(got, want) {
-				t.Fatalf("variables value %d: \ngot\n%v\n\nwant\n%v\n", i+1, got, want)
+		if node, ok := decl.(*ast.RightExpressionNode); ok {
+			if got, want := node.Result(), exp[i]; !reflect.DeepEqual(got, want) {
+				t.Fatalf("right expression value %d: \ngot\n%v\n\nwant\n%v\n", i+1, got, want)
 			}
 		}
 
