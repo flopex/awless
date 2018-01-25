@@ -72,7 +72,6 @@ type CommandNode struct {
 	CmdErr    error
 
 	Action, Entity string
-	Params         map[string]CompositeValue
 	ParamNodes     map[string]interface{}
 	Refs           map[string]interface{}
 }
@@ -83,6 +82,10 @@ type RefNode struct {
 
 func NewRefNode(s string) RefNode {
 	return RefNode{key: s}
+}
+
+func (n RefNode) Ref() string {
+	return n.key
 }
 
 func (n RefNode) clone() Node {
@@ -103,6 +106,10 @@ func NewAliasNode(s string) AliasNode {
 
 func (n AliasNode) clone() Node {
 	return n
+}
+
+func (n AliasNode) Alias() string {
+	return n.key
 }
 
 func (n AliasNode) String() string {

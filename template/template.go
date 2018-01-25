@@ -196,22 +196,6 @@ func (s *Template) CommandNodesIterator() (nodes []*ast.CommandNode) {
 	return
 }
 
-func (s *Template) WithRefsIterator() (nodes []ast.WithRefs) {
-	for _, sts := range s.Statements {
-		switch nn := sts.Node.(type) {
-		case ast.WithRefs:
-			nodes = append(nodes, nn)
-		case *ast.DeclarationNode:
-			expr := sts.Node.(*ast.DeclarationNode).Expr
-			switch nnn := expr.(type) {
-			case *ast.CommandNode:
-				nodes = append(nodes, nnn)
-			}
-		}
-	}
-	return
-}
-
 func (s *Template) CommandNodesReverseIterator() (nodes []*ast.CommandNode) {
 	for i := len(s.Statements) - 1; i >= 0; i-- {
 		sts := s.Statements[i]

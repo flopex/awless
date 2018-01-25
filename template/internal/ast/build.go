@@ -42,7 +42,6 @@ func (b *statementBuilder) build() *Statement {
 		expr = &CommandNode{
 			Action:     b.action,
 			Entity:     b.entity,
-			Params:     cmdParams,
 			ParamNodes: b.newparams,
 			Refs:       make(map[string]interface{}),
 		}

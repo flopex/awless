@@ -27,7 +27,6 @@ import (
 )
 
 var (
-	_ WithHoles = (*CommandNode)(nil)
 	_ WithHoles = (*ValueNode)(nil)
 )
 
@@ -130,14 +129,10 @@ func (c *CommandNode) clone() Node {
 	cmd := &CommandNode{
 		Command: c.Command,
 		Action:  c.Action, Entity: c.Entity,
-		Params:     make(map[string]CompositeValue),
 		ParamNodes: make(map[string]interface{}),
 		Refs:       make(map[string]interface{}),
 	}
 
-	for k, v := range c.Params {
-		cmd.Params[k] = v.Clone()
-	}
 	for k, v := range c.ParamNodes {
 		cmd.ParamNodes[k] = v
 	}
@@ -149,15 +144,6 @@ func (c *CommandNode) clone() Node {
 
 func (c *CommandNode) ProcessHoles(fills map[string]interface{}) map[string]interface{} {
 	processed := make(map[string]interface{})
-
-	for _, param := range c.Params {
-		if withHoles, ok := param.(WithHoles); ok {
-			paramProcessed := withHoles.ProcessHoles(fills)
-			for k, v := range paramProcessed {
-				processed[k] = v
-			}
-		}
-	}
 
 	for paramKey, param := range c.ParamNodes {
 		if hole, ok := param.(HoleNode); ok {
@@ -190,29 +176,7 @@ func (c *CommandNode) ProcessHoles(fills map[string]interface{}) map[string]inte
 	return processed
 }
 
-func (c *CommandNode) GetHoles() map[string]*Hole {
-	holes := make(map[string]*Hole)
-	for paramKey, param := range c.Params {
-		if withHoles, ok := param.(WithHoles); ok {
-			for k, v := range withHoles.GetHoles() {
-				if _, ok := holes[k]; !ok {
-					holes[k] = v
-				}
-				holes[k].ParamPaths = append(holes[k].ParamPaths, strings.Join([]string{c.Action, c.Entity, paramKey}, "."))
-			}
-
-		}
-	}
-	return holes
-}
-
 func (c *CommandNode) ProcessRefs(refs map[string]interface{}) {
-	for _, param := range c.Params {
-		if withRef, ok := param.(WithRefs); ok {
-			withRef.ProcessRefs(refs)
-		}
-	}
-
 	for paramKey, param := range c.Refs {
 		if ref, ok := param.(RefNode); ok {
 			for k, v := range refs {
@@ -240,27 +204,6 @@ func (c *CommandNode) ProcessRefs(refs map[string]interface{}) {
 	}
 }
 
-func (c *CommandNode) GetRefs() (refs []string) {
-	for _, param := range c.Params {
-		if withRef, ok := param.(WithRefs); ok {
-			refs = append(refs, withRef.GetRefs()...)
-		}
-	}
-	return
-}
-
-func (c *CommandNode) ReplaceRef(key string, value CompositeValue) {
-	for k, param := range c.Params {
-		if withRef, ok := param.(WithRefs); ok {
-			if withRef.IsRef(key) {
-				c.Params[k] = value
-			} else {
-				withRef.ReplaceRef(key, value)
-			}
-		}
-	}
-}
-
 func (c *CommandNode) IsRef(key string) bool {
 	return false
 }
@@ -274,19 +217,6 @@ func (c *CommandNode) ToDriverParams() map[string]interface{} {
 		case RefNode, HoleNode, AliasNode:
 		default:
 			params[k] = node
-		}
-	}
-	return params
-}
-
-func (c *CommandNode) ToDriverParamsExcludingRefs() map[string]interface{} {
-	params := make(map[string]interface{})
-	for k, v := range c.Params {
-		if _, ok := v.(WithRefs); ok {
-			continue
-		}
-		if v.Value() != nil {
-			params[k] = v.Value()
 		}
 	}
 	return params

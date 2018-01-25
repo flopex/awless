@@ -233,7 +233,7 @@ func convertParamsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compil
 
 func validateCommandsPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
 	collectValidationErrs := func(node *ast.CommandNode) error {
-		if err := params.Validate(node.ParamsSpec().Validators(), node.ToDriverParamsExcludingRefs()); err != nil {
+		if err := params.Validate(node.ParamsSpec().Validators(), node.ParamNodes); err != nil {
 			return cmdErr(node, err)
 		}
 		return nil
@@ -322,29 +322,8 @@ func resolveMissingHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.
 }
 
 func removeOptionalHolesPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
-	removeOptionalHoles := func(node *ast.CommandNode) error {
-		for key, param := range node.Params {
-			if param.Value() != nil {
-				continue
-			}
-			if withHole, ok := param.(ast.WithHoles); ok {
-				if len(withHole.GetHoles()) == 0 {
-					continue
-				}
-				isOptional := true
-				for _, h := range withHole.GetHoles() {
-					isOptional = isOptional && h.IsOptional
-				}
-				if isOptional {
-					delete(node.Params, key)
-				}
-			}
-		}
-		return nil
-	}
-	err := tpl.visitCommandNodesE(removeOptionalHoles)
 	ast.RemoveOptionalHoles(tpl.AST)
-	return tpl, cenv, err
+	return tpl, cenv, nil
 }
 
 func resolveAliasPass(tpl *Template, cenv env.Compiling) (*Template, env.Compiling, error) {
@@ -366,20 +345,6 @@ func resolveAliasPass(tpl *Template, cenv env.Compiling) (*Template, env.Compili
 		}
 	}
 
-	for _, expr := range tpl.expressionNodesIterator() {
-		switch ee := expr.(type) {
-		case *ast.CommandNode:
-			for k, v := range ee.Params {
-				if vv, ok := v.(ast.WithAlias); ok {
-					vv.ResolveAlias(resolvAliasFunc(ee.Action, ee.Entity, k))
-				}
-			}
-		case *ast.ValueNode:
-			if vv, ok := ee.Value.(ast.WithAlias); ok {
-				vv.ResolveAlias(resolvAliasFunc("", "", ""))
-			}
-		}
-	}
 	ast.ProcessAliases(tpl.AST, resolvAliasFunc)
 
 	switch len(emptyResolv) {
